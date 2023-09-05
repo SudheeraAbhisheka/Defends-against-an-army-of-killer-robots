@@ -7,6 +7,7 @@ import java.util.*;
 import java.util.List; // So that 'List' means java.util.List and not java.awt.List.
 import java.net.URL ;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
 /**
  * A Swing GUI element that displays a grid on which you can draw images, text and lines.
@@ -27,9 +28,10 @@ public class SwingArena extends JPanel
     private double gridSquareSize; // Auto-calculated
     
     private List<ArenaListener> listeners = null;
+    private BlockingQueue<Map<String, XandYObject>> blockingQueue = new LinkedBlockingQueue<>();
     private Map<String, XandYObject> robotsMap = new HashMap<>();
 
-        /**
+    /**
      * Creates a new arena object, loading the robot image.
      */
     public SwingArena()
@@ -57,13 +59,10 @@ public class SwingArena extends JPanel
      * Moves a robot image to a new grid position. This is highly rudimentary, as you will need
      * many different robots in practice. This method currently just serves as a demonstration.
      */
-    public void setRobotPosition(BlockingQueue<Map<String, XandYObject>> blockingQueue)
+    public void setRobotPosition(String robotName, XandYObject xandYObject)
     {
-        for(Map<String, XandYObject> b : blockingQueue){
-            this.robotsMap = b;
-            repaint();
-        }
-
+        robotsMap.put(robotName, xandYObject);
+        repaint();
     }
     
     
@@ -241,5 +240,8 @@ public class SwingArena extends JPanel
                      (int) ((clippedGridY1 + 0.5) * gridSquareSize), 
                      (int) ((gridX2 + 0.5) * gridSquareSize), 
                      (int) ((gridY2 + 0.5) * gridSquareSize));
+    }
+    public Map<String, XandYObject> getRobotsMap() {
+        return robotsMap;
     }
 }
