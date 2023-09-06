@@ -3,6 +3,7 @@ package edu.curtin.saed.assignment1;
 import java.awt.*;
 import java.awt.event.*;
 import javax.swing.*;
+import javax.swing.Timer;
 import java.util.*;
 import java.util.List; // So that 'List' means java.util.List and not java.awt.List.
 import java.net.URL ;
@@ -16,7 +17,12 @@ public class SwingArena extends JPanel
 {
     // Represents the image to draw. You can modify this to introduce multiple images.
     private static final String IMAGE_FILE = "1554047213.png";
+    private static final String CITADEL_FILE = "rg1024-isometric-tower.png";
     private ImageIcon robot1;
+    private ImageIcon citadel;
+    private final double CITADEL_X = 4;
+    private final double CITADEL_Y = 4;
+
 
     // The following values are arbitrary, and you may need to modify them according to the 
     // requirements of your application.
@@ -24,12 +30,12 @@ public class SwingArena extends JPanel
     private int gridHeight = 9;
     private double robotX = 1.0;
     private double robotY = 3.0;
-    
     private double gridSquareSize; // Auto-calculated
     
     private List<ArenaListener> listeners = null;
     private BlockingQueue<Map<String, XandYObject>> blockingQueue = new LinkedBlockingQueue<>();
     private Map<String, XandYObject> robotsMap = new HashMap<>();
+
 
     /**
      * Creates a new arena object, loading the robot image.
@@ -52,6 +58,13 @@ public class SwingArena extends JPanel
             throw new AssertionError("Cannot find image file " + IMAGE_FILE);
         }
         robot1 = new ImageIcon(url);
+
+        url = getClass().getClassLoader().getResource(CITADEL_FILE);
+        if(url == null)
+        {
+            throw new AssertionError("Cannot find image file " + CITADEL_FILE);
+        }
+        citadel = new ImageIcon(url);
     }
     
     
@@ -153,6 +166,9 @@ public class SwingArena extends JPanel
 
             drawImage(gfx, robot1, robotX, robotY);
             drawLabel(gfx, robotName, robotX, robotY);
+
+            drawImage(gfx, citadel, CITADEL_X, CITADEL_Y);
+            drawLabel(gfx, "Citadel", CITADEL_X, CITADEL_Y);
         }
     }
     

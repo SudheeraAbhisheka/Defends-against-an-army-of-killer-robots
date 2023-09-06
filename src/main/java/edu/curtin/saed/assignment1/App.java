@@ -13,6 +13,8 @@ public class App
     private static ExecutorService executorService;
     private static SwingArena arena;
     private static int robotNumber = 1;
+    private final int CITADEL_X = 4;
+    private int CITADEL_Y = 4;
 
     public static void main(String[] args) 
     {
@@ -72,7 +74,6 @@ public class App
     private static void RobotsAppearing(){
         int corner;
         int x = 0, y = 0;
-        int robotNumber = 1;
 
 
         while(true){
@@ -85,26 +86,23 @@ public class App
                 throw new RuntimeException(e);
             }
 
-            switch (corner){
-                case 1: {
+            switch (corner) {
+                case 1 -> {
                     x = 0;
                     y = 0;
-                }break;
-
-                case 2:{
+                }
+                case 2 -> {
                     x = 0;
                     y = 8;
-                }break;
-
-                case 3:{
+                }
+                case 3 -> {
                     x = 8;
                     y = 0;
-                }break;
-
-                case 4:{
+                }
+                case 4 -> {
                     x = 8;
                     y = 8;
-                }break;
+                }
             }
             setRobotXandY(x, y);
         }
@@ -121,8 +119,8 @@ public class App
 
             delay = (int)(Math.random()*(2000-500+1)+500);
             arena.setRobotPosition(""+robotNumber, new XandYObject(x, y, delay));
-            CompletableFuture.runAsync(() -> MovingAttemptThread(""+robotNumber, new XandYObject(x, y, delay)), executorService);
-            System.out.println((executorService));
+            CompletableFuture.runAsync(() -> TowardsTheCitadel(""+robotNumber, new XandYObject(x, y, delay)), executorService);
+//            System.out.println(String.format("isEmpty - %b \t robotNumber - %d",robotsMap.isEmpty(), robotNumber));
             robotNumber++;
 
         }
@@ -141,25 +139,30 @@ public class App
             else{
                 delay = (int)(Math.random()*(2000-500+1)+500);
                 arena.setRobotPosition(""+robotNumber, new XandYObject(x, y, delay));
-                CompletableFuture.runAsync(() -> MovingAttemptThread(""+robotNumber, new XandYObject(x, y, delay)), executorService);
+                CompletableFuture.runAsync(() -> TowardsTheCitadel(""+robotNumber, new XandYObject(x, y, delay)), executorService);
+//                System.out.println(robotNumber+" " + executorService);
                 robotNumber++;
-                System.out.println((executorService));
             }
         }
 
 
     }
-    private static void MovingAttemptThread(String robotName, XandYObject xandYObject){
+    private static void TowardsTheCitadel(String robotName, XandYObject xandYObject){
         int direction;
-        int delay = 0;
-        int x = 0, y = 0;
+        int delay;
+        int x, y =0;
+        final int MAX = 2;
+        final int MIN = 1;
+        Boolean freeToMove;
+
 
         delay = xandYObject.getDelay();
         x = xandYObject.getX();
         y = xandYObject.getY();
 
         while(true){
-            direction = (int) (Math.random() * (4 - 1 + 1) + 1);
+
+            direction = (int) (Math.random() * (MAX - MIN + 1) + MIN);
 
             try {
                 Thread.sleep(delay);
@@ -167,43 +170,166 @@ public class App
                 throw new RuntimeException(e);
             }
 
+            if(x < 4 && y < 4){ // Upper left corner
+                switch (direction) {
+                    case 1 -> { // Moves right
+                        if (x < 8) {
+                            x++;
+                            freeToMove = FreeToMove(robotName, xandYObject, x, y);
+                            if (!freeToMove) {
+                                x--;
+                                RandomMovingAttempt(robotName, xandYObject);
+                            }
+                        }
+                    }
+                    case 2 -> { // Moves down
+                        if (y < 8) {
+                            y++;
+                            freeToMove = FreeToMove(robotName, xandYObject, x, y);
+                            if (!freeToMove) {
+                                y--;
+                                RandomMovingAttempt(robotName, xandYObject);
+                            }
+                        }
+                    }
+                }
+            }else if(x >= 4 && y < 4){ // Upper right corner
+                switch (direction) {
+                    case 1 -> { // Moves left
+                        if (x > 0) {
+                            x--;
+                            freeToMove = FreeToMove(robotName, xandYObject, x, y);
+                            if (!freeToMove) {
+                                x++;
+                                RandomMovingAttempt(robotName, xandYObject);
+                            }
+                        }
+                    }
+                    case 2 -> { // Moves down
+                        if (y < 8) {
+                            y++;
+                            freeToMove = FreeToMove(robotName, xandYObject, x, y);
+                            if (!freeToMove) {
+                                y--;
+                                RandomMovingAttempt(robotName, xandYObject);
+                            }
+                        }
+                    }
+                }
+            }else if(x < 4 && y >= 4) { // Bottom left corner
+                switch (direction) {
+                    case 1 -> { // Moves up
+                        if (y > 0) {
+                            y--;
+                            freeToMove = FreeToMove(robotName, xandYObject, x, y);
+                            if (!freeToMove) {
+                                y++;
+                                RandomMovingAttempt(robotName, xandYObject);
+                            }
+                        }
+                    }
+                    case 2 -> { // Moves right
+                        if (x < 8) {
+                            x++;
+                            freeToMove = FreeToMove(robotName, xandYObject, x, y);
+                            if (!freeToMove) {
+                                x--;
+                                RandomMovingAttempt(robotName, xandYObject);
+                            }
+                        }
+                    }
+                }
+            }else if(x >= 4 && y >= 4){ // Bottom right corner
+                switch (direction) {
+                    case 1 -> { // Moves up
+                        if (y > 0) {
+                            y--;
+                            freeToMove = FreeToMove(robotName, xandYObject, x, y);
+                            if (!freeToMove) {
+                                y++;
+                                RandomMovingAttempt(robotName, xandYObject);
+                            }
+                        }
+                    }
+                    case 2 -> { // Moves left
+                        if (x > 0) {
+                            x--;
+                            freeToMove = FreeToMove(robotName, xandYObject, x, y);
+                            if (!freeToMove) {
+                                x++;
+                                RandomMovingAttempt(robotName, xandYObject);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    private static void RandomMovingAttempt(String robotName, XandYObject xandYObject){
+        int direction;
+        int delay;
+        int x, y;
+        Boolean freeToMove;
+        final int MAX = 4;
+        final int MIN = 1;
+
+        delay = xandYObject.getDelay();
+        x = xandYObject.getX();
+        y = xandYObject.getY();
+
+        while(true){
+
+            direction = (int) (Math.random() * (MAX - MIN + 1) + MIN);
+
+            try {
+                Thread.sleep(delay);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+
+
             switch (direction) {
-                case 1: { // Moves left
-                    if(x > 0){
+                case 1 -> { // Moves left
+                    if (x > 0) {
                         x--;
-                        FreeToMove(robotName, xandYObject, x, y);
+                        freeToMove = FreeToMove(robotName, xandYObject, x, y);
+                        if (!freeToMove) {
+                            x++;
+                        }
                     }
                 }
-                break;
-
-                case 2: { // Moves right
-                    if(x < 8){
+                case 2 -> { // Moves right
+                    if (x < 8) {
                         x++;
-                        FreeToMove(robotName, xandYObject, x, y);
+                        freeToMove = FreeToMove(robotName, xandYObject, x, y);
+                        if (!freeToMove) {
+                            x--;
+                        }
                     }
                 }
-                break;
-
-                case 3: { // Moves up
-                    if(y < 8){
-                        y++;
-                        FreeToMove(robotName, xandYObject, x, y);
-                    }
-                }
-                break;
-
-                case 4: { // Moves down
-                    if(y > 0){
+                case 3 -> { // Moves up
+                    if (y > 0) {
                         y--;
-                        FreeToMove(robotName, xandYObject, x, y);
+                        freeToMove = FreeToMove(robotName, xandYObject, x, y);
+                        if (!freeToMove) {
+                            y++;
+                        }
                     }
                 }
-                break;
+                case 4 -> { // Moves down
+                    if (y < 8) {
+                        y++;
+                        freeToMove = FreeToMove(robotName, xandYObject, x, y);
+                        if (!freeToMove) {
+                            y--;
+                        }
+                    }
+                }
             }
 
         }
     }
-    private static void FreeToMove(String robotName, XandYObject xandYObjectOld, int newX, int newY){
+    private static Boolean FreeToMove(String robotName, XandYObject xandYObjectOld, int newX, int newY){
         Map<String, XandYObject> everyRobots;
         int X, Y;
         Boolean freeToMove = true;
@@ -225,6 +351,7 @@ public class App
             arena.setRobotPosition(robotName, xandYObjectOld);
         }
 
+        return freeToMove;
     }
 
 }
