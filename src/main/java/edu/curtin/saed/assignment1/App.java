@@ -1,5 +1,7 @@
 package edu.curtin.saed.assignment1;
 
+import org.jetbrains.annotations.NotNull;
+
 import java.awt.*;
 import java.util.Map;
 import java.util.concurrent.*;
@@ -13,8 +15,7 @@ public class App
     private static ExecutorService executorService;
     private static SwingArena arena;
     private static int robotNumber = 1;
-    private final int CITADEL_X = 4;
-    private int CITADEL_Y = 4;
+    private BlockingQueue<SwingArena> queue = new ArrayBlockingQueue<>(81);
 
     public static void main(String[] args) 
     {
@@ -27,6 +28,8 @@ public class App
             arena = new SwingArena();
 
             CompletableFuture.runAsync(App::RobotsAppearing, executorService);
+            System.out.println("Main thread " + executorService);
+
 //            CompletableFuture.runAsync(App::MoveAttempt, executorService);
 //            CompletableFuture.runAsync(App::methodThree, executorService);
 //            CompletableFuture.runAsync(App::methodFour, executorService);
@@ -74,17 +77,12 @@ public class App
     private static void RobotsAppearing(){
         int corner;
         int x = 0, y = 0;
+        final int DELAYMIN = 1;
+        final int DELAYMAX = 4;
 
 
         while(true){
-            corner = (int)(Math.random()*(4-1+1)+1);
-
-
-            try {
-                Thread.sleep(1500);
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
+            corner = (int)(Math.random()*(DELAYMAX-DELAYMIN+1)+DELAYMIN);
 
             switch (corner) {
                 case 1 -> {
@@ -112,22 +110,29 @@ public class App
         Boolean occupied = false;
         int X, Y;
         int delay;
+        final int DELAYMIN = 500;
+        final int DELAYMAX = 2000;
 
         robotsMap = arena.getRobotsMap();
+        delay = (int)(Math.random()*(DELAYMAX-DELAYMIN+1)+DELAYMIN);
 
-        if(robotsMap.isEmpty()){
+        if(robotNumber == 1){
 
-            delay = (int)(Math.random()*(2000-500+1)+500);
-            arena.setRobotPosition(""+robotNumber, new XandYObject(x, y, delay));
+            arena.setRobotPosition(""+robotNumber, new XandYObject(x, y, delay), 0);
             CompletableFuture.runAsync(() -> TowardsTheCitadel(""+robotNumber, new XandYObject(x, y, delay)), executorService);
-//            System.out.println(String.format("isEmpty - %b \t robotNumber - %d",robotsMap.isEmpty(), robotNumber));
-            robotNumber++;
 
+            try {
+                Thread.sleep(1500);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+
+            robotNumber++;
         }
         else{
             for(XandYObject xandYObject :  robotsMap.values()){
-                X = xandYObject.getX();
-                Y = xandYObject.getY();
+                X = xandYObject.getNewX();
+                Y = xandYObject.getNewY();
 
                 if(x == X && y == Y){
                     occupied = true;
@@ -137,11 +142,17 @@ public class App
                 // do nothing
             }
             else{
-                delay = (int)(Math.random()*(2000-500+1)+500);
-                arena.setRobotPosition(""+robotNumber, new XandYObject(x, y, delay));
+                arena.setRobotPosition(""+robotNumber, new XandYObject(x, y, delay), 0);
                 CompletableFuture.runAsync(() -> TowardsTheCitadel(""+robotNumber, new XandYObject(x, y, delay)), executorService);
-//                System.out.println(robotNumber+" " + executorService);
+
+                try {
+                    Thread.sleep(1500);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+
                 robotNumber++;
+
             }
         }
 
@@ -151,18 +162,18 @@ public class App
         int direction;
         int delay;
         int x, y =0;
-        final int MAX = 2;
-        final int MIN = 1;
+        final int DELAYMAX = 2;
+        final int DELAYMIN = 1;
         Boolean freeToMove;
 
 
         delay = xandYObject.getDelay();
-        x = xandYObject.getX();
-        y = xandYObject.getY();
+        x = xandYObject.getNewX();
+        y = xandYObject.getNewY();
 
         while(true){
 
-            direction = (int) (Math.random() * (MAX - MIN + 1) + MIN);
+            direction = (int) (Math.random() * (DELAYMAX - DELAYMIN + 1) + DELAYMIN);
 
             try {
                 Thread.sleep(delay);
@@ -270,16 +281,16 @@ public class App
         int delay;
         int x, y;
         Boolean freeToMove;
-        final int MAX = 4;
-        final int MIN = 1;
+        final int DELAYMAX = 4;
+        final int DELAYMIN = 1;
 
         delay = xandYObject.getDelay();
-        x = xandYObject.getX();
-        y = xandYObject.getY();
+        x = xandYObject.getNewX();
+        y = xandYObject.getNewY();
 
         while(true){
 
-            direction = (int) (Math.random() * (MAX - MIN + 1) + MIN);
+            direction = (int) (Math.random() * (DELAYMAX - DELAYMIN + 1) + DELAYMIN);
 
             try {
                 Thread.sleep(delay);
@@ -329,16 +340,16 @@ public class App
 
         }
     }
-    private static Boolean FreeToMove(String robotName, XandYObject xandYObjectOld, int newX, int newY){
+    private static Boolean FreeToMove(String robotName, XandYObject xandYObject, int newX, int newY){
         Map<String, XandYObject> everyRobots;
         int X, Y;
         Boolean freeToMove = true;
 
         everyRobots = arena.getRobotsMap();
 
-        for(XandYObject xandYObject : everyRobots.values()){
-            X = xandYObject.getX();
-            Y = xandYObject.getY();
+        for(XandYObject o : everyRobots.values()){
+            X = o.getNewX();
+            Y = o.getNewY();
 
             if(newX == X && newY == Y){
                 freeToMove = false;
@@ -346,9 +357,14 @@ public class App
         }
 
         if(freeToMove){
-            xandYObjectOld.setX(newX);
-            xandYObjectOld.setY(newY);
-            arena.setRobotPosition(robotName, xandYObjectOld);
+//            if(robotName.equals("3")){
+//                System.out.printf("robot %s, newX %s, newY %s%n",robotName, newX, newY);
+//            }
+                xandYObject.setOldX(xandYObject.getNewX());
+                xandYObject.setOldY(xandYObject.getNewY());
+                xandYObject.setNewX(newX);
+                xandYObject.setNewY(newY);
+                arena.setRobotPosition(robotName, xandYObject);
         }
 
         return freeToMove;

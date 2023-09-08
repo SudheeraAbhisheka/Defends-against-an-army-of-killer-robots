@@ -7,13 +7,14 @@ import javax.swing.Timer;
 import java.util.*;
 import java.util.List; // So that 'List' means java.util.List and not java.awt.List.
 import java.net.URL ;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
 /**
  * A Swing GUI element that displays a grid on which you can draw images, text and lines.
  */
-public class SwingArena extends JPanel
+public class SwingArena extends JPanel implements ActionListener
 {
     // Represents the image to draw. You can modify this to introduce multiple images.
     private static final String IMAGE_FILE = "1554047213.png";
@@ -28,14 +29,23 @@ public class SwingArena extends JPanel
     // requirements of your application.
     private int gridWidth = 9;
     private int gridHeight = 9;
-    private double robotX = 1.0;
-    private double robotY = 3.0;
+    private double robotX;
+    private double robotY;
+    private double animationRobotX;
+    private double animationRobotY;
     private double gridSquareSize; // Auto-calculated
-    
     private List<ArenaListener> listeners = null;
-    private BlockingQueue<Map<String, XandYObject>> blockingQueue = new LinkedBlockingQueue<>();
     private Map<String, XandYObject> robotsMap = new HashMap<>();
-
+    private int startX;
+    private int startY;
+    private int endX;
+    private int endY;
+    private int animationDuration = 400;
+    private int animationInterval = 40;
+    private long startTime; // Start time of the animation
+    private String animationRobot = "";
+    private Timer timer;
+    private Object mutex = new Object();
 
     /**
      * Creates a new arena object, loading the robot image.
@@ -72,10 +82,55 @@ public class SwingArena extends JPanel
      * Moves a robot image to a new grid position. This is highly rudimentary, as you will need
      * many different robots in practice. This method currently just serves as a demonstration.
      */
+
     public void setRobotPosition(String robotName, XandYObject xandYObject)
     {
-        robotsMap.put(robotName, xandYObject);
-        repaint();
+        synchronized (mutex){
+            robotsMap.put(robotName, xandYObject);
+
+            this.animationRobot = robotName;
+            endX = xandYObject.getNewX();
+            endY = xandYObject.getNewY();
+            startX = xandYObject.getOldX();
+            startY = xandYObject.getOldY();
+
+            timer = new Timer(animationInterval, this);
+            timer.setInitialDelay(0);
+            startAnimation();
+        }
+
+
+    }
+    public void setRobotPosition(String robotName, XandYObject xandYObject, int FLAG) // Robots' startup positions
+    {
+        synchronized (mutex){
+            robotsMap.put(robotName, xandYObject);
+            repaint();
+        }
+
+
+    }
+
+    public void startAnimation() {
+        startTime = System.currentTimeMillis();
+        timer.start();
+    }
+
+    @Override
+    public void actionPerformed(ActionEvent e) {
+        long elapsedTime = System.currentTimeMillis() - startTime;
+
+        if (elapsedTime >= animationDuration) {
+            timer.stop();
+        } else {
+
+            double progress = (double) elapsedTime / animationDuration;
+            animationRobotX = (startX + progress * (endX - startX));
+            animationRobotY = (startY + progress * (endY - startY));
+//            System.out.printf(("Current x - %f, currentY - %f%n"), robotX, robotY);
+
+            repaint();
+        }
     }
     
     
@@ -122,6 +177,8 @@ public class SwingArena extends JPanel
     @Override
     public void paintComponent(Graphics g)
     {
+        String robotName = "";
+
         super.paintComponent(g);
         Graphics2D gfx = (Graphics2D) g;
         gfx.setRenderingHint(RenderingHints.KEY_INTERPOLATION, 
@@ -157,19 +214,37 @@ public class SwingArena extends JPanel
         
         // Invoke helper methods to draw things at the current location.
         // ** You will need to adapt this to the requirements of your application. **
-        String robotName;
 
-        for(Map.Entry<String, XandYObject> b : robotsMap.entrySet()){
-            robotX = b.getValue().getX();
-            robotY = b.getValue().getY();
-            robotName = b.getKey();
+        synchronized (mutex){
+            for(Map.Entry<String, XandYObject> b : robotsMap.entrySet()){
+                robotX = b.getValue().getNewX();
+                robotY = b.getValue().getNewY();
+                robotName = b.getKey();
 
-            drawImage(gfx, robot1, robotX, robotY);
-            drawLabel(gfx, robotName, robotX, robotY);
+                if(!robotName.equals(animationRobot)){
+                    drawImage(gfx, robot1, robotX, robotY);
+                    drawLabel(gfx, robotName, robotX, robotY);
+                }
 
-            drawImage(gfx, citadel, CITADEL_X, CITADEL_Y);
-            drawLabel(gfx, "Citadel", CITADEL_X, CITADEL_Y);
+                if(!animationRobot.equals("")){
+                    drawImage(gfx, robot1, animationRobotX, animationRobotY);
+                    drawLabel(gfx, animationRobot, animationRobotX, animationRobotY);
+                }
+
+
+
+
+//            System.out.printf("animationRobot - %s, animationRobotX - %f, animationRobotY%f%n", animationRobot, animationRobotX, animationRobotY);
+
+                drawImage(gfx, citadel, CITADEL_X, CITADEL_Y);
+                drawLabel(gfx, "Citadel", CITADEL_X, CITADEL_Y);
         }
+
+
+
+
+        }
+
     }
     
     

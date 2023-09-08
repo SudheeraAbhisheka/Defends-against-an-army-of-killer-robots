@@ -23,3 +23,7 @@ pmd {
     ruleSets = []
     ruleSetFiles = files('saed-pmd-rules.xml')
 }
+
+dependencies {
+    implementation 'org.jetbrains:annotations:23.0.0'
+}

@@ -3,41 +3,53 @@ package edu.curtin.saed.assignment1;
 import java.util.concurrent.ExecutorService;
 
 public class XandYObject {
-    private int x, y;
+    private int newX, newY, oldX, oldY;
     private int delay;
     private ExecutorService executorService;
 
-    public XandYObject(int x, int y, int delay) {
-        this.x = x;
-        this.y = y;
+    public XandYObject(int newX, int newY, int delay) {
+        this.newX = newX;
+        this.newY = newY;
         this.delay = delay;
     }
 
-    public int getX() {
-        return x;
+    public int getOldX() {
+        return oldX;
     }
-
-    public int getY() {
-        return y;
+    public int getOldY() {
+        return oldY;
+    }
+    public int getNewX() {
+        return newX;
+    }
+    public int getNewY() {
+        return newY;
     }
 
     public int getDelay() {
         return delay;
     }
 
-    public void setX(int x) {
-        this.x = x;
+    public void setNewX(int newX) {
+        this.newX = newX;
     }
 
-    public void setY(int y) {
-        this.y = y;
+    public void setNewY(int newY) {
+        this.newY = newY;
     }
+    public void setOldX(int oldX) {
+        this.oldX = oldX;
+    }
+    public void setOldY(int oldY) {
+        this.oldY = oldY;
+    }
+
 
     @Override
     public String toString() {
         return "XandYObject{" +
-                "x=" + x +
-                ", y=" + y +
+                "x=" + newX +
+                ", y=" + newY +
                 '}';
     }
 }
