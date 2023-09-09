@@ -19,8 +19,12 @@ public class SwingArena extends JPanel implements ActionListener
     // Represents the image to draw. You can modify this to introduce multiple images.
     private static final String IMAGE_FILE = "1554047213.png";
     private static final String CITADEL_FILE = "rg1024-isometric-tower.png";
+    private static final String UNDAMAGED_WALL = "181478.png";
+    private static final String DAMAGED_WALL = "181479.png";
     private ImageIcon robot1;
     private ImageIcon citadel;
+    private ImageIcon wall_undamaged;
+    private ImageIcon wall_damaged;
     private final double CITADEL_X = 4;
     private final double CITADEL_Y = 4;
 
@@ -36,6 +40,9 @@ public class SwingArena extends JPanel implements ActionListener
     private double gridSquareSize; // Auto-calculated
     private List<ArenaListener> listeners = null;
     private Map<String, XandYObject> robotsMap = new HashMap<>();
+    private Map<String, XandYObject> wallMap = new HashMap<>();
+    private int[][] wallArray = new int[9][9];
+    private int[][] robotArray = new int[9][9];;
     private int startX;
     private int startY;
     private int endX;
@@ -75,9 +82,22 @@ public class SwingArena extends JPanel implements ActionListener
             throw new AssertionError("Cannot find image file " + CITADEL_FILE);
         }
         citadel = new ImageIcon(url);
+
+        url = getClass().getClassLoader().getResource(UNDAMAGED_WALL);
+        if(url == null)
+        {
+            throw new AssertionError("Cannot find image file " + UNDAMAGED_WALL);
+        }
+        wall_undamaged = new ImageIcon(url);
+
+        url = getClass().getClassLoader().getResource(DAMAGED_WALL);
+        if(url == null)
+        {
+            throw new AssertionError("Cannot find image file " + DAMAGED_WALL);
+        }
+        wall_damaged = new ImageIcon(url);
     }
-    
-    
+
     /**
      * Moves a robot image to a new grid position. This is highly rudimentary, as you will need
      * many different robots in practice. This method currently just serves as a demonstration.
@@ -94,6 +114,12 @@ public class SwingArena extends JPanel implements ActionListener
             startX = xandYObject.getOldX();
             startY = xandYObject.getOldY();
 
+            /************/
+
+            robotArray[endX][endY] = 1;
+            robotArray[startX][startY] = 1;
+
+            /************/
             timer = new Timer(animationInterval, this);
             timer.setInitialDelay(0);
             startAnimation();
@@ -105,10 +131,14 @@ public class SwingArena extends JPanel implements ActionListener
     {
         synchronized (mutex){
             robotsMap.put(robotName, xandYObject);
+            robotArray[xandYObject.getNewX()][xandYObject.getNewY()] = 1;
             repaint();
         }
 
 
+    }
+    public void setWallPosition(int x, int y){
+        wallArray[x][y] = 1;
     }
 
     public void startAnimation() {
@@ -118,19 +148,28 @@ public class SwingArena extends JPanel implements ActionListener
 
     @Override
     public void actionPerformed(ActionEvent e) {
-        long elapsedTime = System.currentTimeMillis() - startTime;
+        synchronized (mutex){
+            long elapsedTime = System.currentTimeMillis() - startTime;
 
-        if (elapsedTime >= animationDuration) {
-            timer.stop();
-        } else {
+            if (elapsedTime >= animationDuration) {
+                XandYObject xandYObject = robotsMap.get(animationRobot);
+                xandYObject.setOldX(9);
+                xandYObject.setOldY(9);
+                robotsMap.put(animationRobot, xandYObject);
+                robotArray[startX][startY] = 0;
+                timer.stop();
+                System.out.println(animationRobot+" Done");
+            } else {
 
-            double progress = (double) elapsedTime / animationDuration;
-            animationRobotX = (startX + progress * (endX - startX));
-            animationRobotY = (startY + progress * (endY - startY));
+                double progress = (double) elapsedTime / animationDuration;
+                animationRobotX = (startX + progress * (endX - startX));
+                animationRobotY = (startY + progress * (endY - startY));
 //            System.out.printf(("Current x - %f, currentY - %f%n"), robotX, robotY);
 
-            repaint();
+                repaint();
+            }
         }
+
     }
     
     
@@ -233,15 +272,19 @@ public class SwingArena extends JPanel implements ActionListener
 
 
 
+            }
 
-//            System.out.printf("animationRobot - %s, animationRobotX - %f, animationRobotY%f%n", animationRobot, animationRobotX, animationRobotY);
+            int damage;
+            for(int i = 0; i < 9; i++){
+                for(int j = 0; j < 9; j++){
+                    damage = wallArray[i][j];
+                    if(damage == 1)
+                        drawImage(gfx, wall_undamaged, i, j);
+                }
+            }
 
-                drawImage(gfx, citadel, CITADEL_X, CITADEL_Y);
-                drawLabel(gfx, "Citadel", CITADEL_X, CITADEL_Y);
-        }
-
-
-
+            drawImage(gfx, citadel, CITADEL_X, CITADEL_Y);
+            drawLabel(gfx, "Citadel", CITADEL_X, CITADEL_Y);
 
         }
 
@@ -334,5 +377,17 @@ public class SwingArena extends JPanel implements ActionListener
     }
     public Map<String, XandYObject> getRobotsMap() {
         return robotsMap;
+    }
+    public double getCITADEL_X() {
+        return CITADEL_X;
+    }
+    public double getCITADEL_Y() {
+        return CITADEL_Y;
+    }
+    public int[][] getWallArray() {
+        return wallArray;
+    }
+    public int[][] getRobotArray() {
+        return robotArray;
     }
 }

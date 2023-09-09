@@ -10,13 +10,12 @@ import javax.swing.*;
 
 public class App 
 {
-    private static final Logger logger = Logger.getLogger(App.class.getName());
-    private static BlockingQueue<Map<String, XandYObject>> blockingQueue = new LinkedBlockingQueue<>();
+    private static JTextArea logger;
+    private static BlockingQueue<XandYObject> blockingQueue = new ArrayBlockingQueue<>(100);
     private static ExecutorService executorService;
     private static SwingArena arena;
     private static int robotNumber = 1;
     private BlockingQueue<SwingArena> queue = new ArrayBlockingQueue<>(81);
-
     public static void main(String[] args) 
     {
         executorService = Executors.newFixedThreadPool(81);
@@ -28,15 +27,15 @@ public class App
             arena = new SwingArena();
 
             CompletableFuture.runAsync(App::RobotsAppearing, executorService);
-            System.out.println("Main thread " + executorService);
-
 //            CompletableFuture.runAsync(App::MoveAttempt, executorService);
 //            CompletableFuture.runAsync(App::methodThree, executorService);
 //            CompletableFuture.runAsync(App::methodFour, executorService);
 
             arena.addListener((x, y) ->
             {
-                System.out.println("Arena click at (" + x + "," + y + ")");
+//                System.out.println("Arena click at (" + x + "," + y + ")");
+//                CompletableFuture.runAsync(() -> FortressWall(x, y));
+                FortressWall(x, y);
             });
             
             JToolBar toolbar = new JToolBar();
@@ -52,11 +51,9 @@ public class App
 //                 System.out.println("Button 1 pressed");
 //             });
             
-            JTextArea logger = new JTextArea();
+            logger = new JTextArea();
             JScrollPane loggerArea = new JScrollPane(logger);
             loggerArea.setBorder(BorderFactory.createEtchedBorder());
-            logger.append("Hello\n");
-            logger.append("World\n");
             
             JSplitPane splitPane = new JSplitPane(
                 JSplitPane.HORIZONTAL_SPLIT, arena, logger);
@@ -106,14 +103,11 @@ public class App
         }
     }
     private static void setRobotXandY(int x, int y){
-        Map<String, XandYObject> robotsMap;
-        Boolean occupied = false;
-        int X, Y;
+        boolean occupied;
         int delay;
         final int DELAYMIN = 500;
         final int DELAYMAX = 2000;
 
-        robotsMap = arena.getRobotsMap();
         delay = (int)(Math.random()*(DELAYMAX-DELAYMIN+1)+DELAYMIN);
 
         if(robotNumber == 1){
@@ -130,14 +124,8 @@ public class App
             robotNumber++;
         }
         else{
-            for(XandYObject xandYObject :  robotsMap.values()){
-                X = xandYObject.getNewX();
-                Y = xandYObject.getNewY();
+            occupied = IsOccupied(x, y);
 
-                if(x == X && y == Y){
-                    occupied = true;
-                }
-            }
             if(occupied){
                 // do nothing
             }
@@ -340,34 +328,100 @@ public class App
 
         }
     }
-    private static Boolean FreeToMove(String robotName, XandYObject xandYObject, int newX, int newY){
-        Map<String, XandYObject> everyRobots;
-        int X, Y;
-        Boolean freeToMove = true;
+    private static boolean FreeToMove(String robotName, XandYObject xandYObject, int newX, int newY){
+        Map<String, XandYObject> robotsMap;
+        int[][] wallArray;
+        int[][] robotArray;
+        boolean freeToMove = true;
 
-        everyRobots = arena.getRobotsMap();
+        robotsMap = arena.getRobotsMap();
+        wallArray = arena.getWallArray();
+        robotArray = arena.getRobotArray();
 
-        for(XandYObject o : everyRobots.values()){
-            X = o.getNewX();
-            Y = o.getNewY();
-
-            if(newX == X && newY == Y){
-                freeToMove = false;
-            }
+        if(IsOccupied(newX, newY)){
+            freeToMove = false;
         }
 
+
+//        if(robotArray[newX][newY] == 1)
+//            freeToMove = false;
+//
+        if(wallArray[newX][newY] == 1)
+            freeToMove = false;
+
+
+//        System.out.println(robotArray[newX][newY]);
+
         if(freeToMove){
-//            if(robotName.equals("3")){
-//                System.out.printf("robot %s, newX %s, newY %s%n",robotName, newX, newY);
-//            }
+
                 xandYObject.setOldX(xandYObject.getNewX());
                 xandYObject.setOldY(xandYObject.getNewY());
                 xandYObject.setNewX(newX);
                 xandYObject.setNewY(newY);
                 arena.setRobotPosition(robotName, xandYObject);
+
+            if(newX == arena.getCITADEL_X() && newY == arena.getCITADEL_Y()){
+//                executorService.shutdownNow();
+            }
         }
 
         return freeToMove;
+    }
+    private static void FortressWall(int x, int y){
+        boolean occupied;
+
+        occupied = IsOccupied(x, y);
+
+        if(!occupied){
+            arena.setWallPosition(x, y);
+
+//            String s = String.format("%s, %s", x, y);
+//            logger.append(s+"\n");
+        }
+        else{
+            Map<String, XandYObject> robotsMap;
+            robotsMap = arena.getRobotsMap();
+
+            for(Map.Entry<String, XandYObject> e : robotsMap.entrySet()){
+                XandYObject o = e.getValue();
+
+                if((x == o.getNewX() && y == o.getNewY() ) || (x == o.getOldX() && y == o.getOldY())){ // (x == arena.getCITADEL_X() && y == arena.getCITADEL_Y())
+                    String s = String.format("%s, %d, %d, %d, %d", e.getKey(), o.getOldX(), o.getOldY(), o.getNewX(), o.getNewY());
+                    logger.append(s+"\n");
+
+                }
+
+            }
+
+
+        }
+
+    }
+    private static boolean IsOccupied(int x, int y){
+        boolean occupied = false;
+        Map<String, XandYObject> robotsMap;
+        int wallArray[][];
+        int robotArray[][];
+
+
+        robotsMap = arena.getRobotsMap();
+        wallArray = arena.getWallArray();
+        robotArray = arena.getRobotArray();
+
+        for(XandYObject o :  robotsMap.values()){
+            if((x == o.getNewX() && y == o.getNewY() ) || (x == o.getOldX() && y == o.getOldY())){ // (x == arena.getCITADEL_X() && y == arena.getCITADEL_Y())
+                occupied = true;
+            }
+        }
+
+        if(wallArray[x][y] == 1)
+            occupied = true;
+
+//        if(robotArray[x][y] == 1)
+//            occupied = true;
+
+
+        return occupied;
     }
 
 }
