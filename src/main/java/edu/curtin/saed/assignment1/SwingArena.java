@@ -7,9 +7,6 @@ import javax.swing.Timer;
 import java.util.*;
 import java.util.List; // So that 'List' means java.util.List and not java.awt.List.
 import java.net.URL ;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingQueue;
 
 /**
  * A Swing GUI element that displays a grid on which you can draw images, text and lines.
@@ -20,11 +17,13 @@ public class SwingArena extends JPanel implements ActionListener
     private static final String IMAGE_FILE = "1554047213.png";
     private static final String CITADEL_FILE = "rg1024-isometric-tower.png";
     private static final String UNDAMAGED_WALL = "181478.png";
-    private static final String DAMAGED_WALL = "181479.png";
+    private static final String WEAKENED_WALL = "181479.png";
+    private final int WALL_UNDAMAGED = 1;
+    private final int WALL_WEAKENED = 2;
     private ImageIcon robot1;
     private ImageIcon citadel;
     private ImageIcon wall_undamaged;
-    private ImageIcon wall_damaged;
+    private ImageIcon wall_weakened;
     private final double CITADEL_X = 4;
     private final double CITADEL_Y = 4;
 
@@ -90,12 +89,12 @@ public class SwingArena extends JPanel implements ActionListener
         }
         wall_undamaged = new ImageIcon(url);
 
-        url = getClass().getClassLoader().getResource(DAMAGED_WALL);
+        url = getClass().getClassLoader().getResource(WEAKENED_WALL);
         if(url == null)
         {
-            throw new AssertionError("Cannot find image file " + DAMAGED_WALL);
+            throw new AssertionError("Cannot find image file " + WEAKENED_WALL);
         }
-        wall_damaged = new ImageIcon(url);
+        wall_weakened = new ImageIcon(url);
     }
 
     /**
@@ -123,6 +122,12 @@ public class SwingArena extends JPanel implements ActionListener
             timer = new Timer(animationInterval, this);
             timer.setInitialDelay(0);
             startAnimation();
+
+            xandYObject = robotsMap.get(animationRobot);
+            xandYObject.setOldX(9);
+            xandYObject.setOldY(9);
+            robotsMap.put(animationRobot, xandYObject);
+            robotArray[startX][startY] = 0;
         }
 
 
@@ -137,8 +142,8 @@ public class SwingArena extends JPanel implements ActionListener
 
 
     }
-    public void setWallPosition(int x, int y){
-        wallArray[x][y] = 1;
+    public void setWallPosition(int x, int y, int wallState){
+        wallArray[x][y] = wallState;
     }
 
     public void startAnimation() {
@@ -153,12 +158,20 @@ public class SwingArena extends JPanel implements ActionListener
 
             if (elapsedTime >= animationDuration) {
                 XandYObject xandYObject = robotsMap.get(animationRobot);
-                xandYObject.setOldX(9);
-                xandYObject.setOldY(9);
-                robotsMap.put(animationRobot, xandYObject);
-                robotArray[startX][startY] = 0;
+
+                if(xandYObject.getDestroyed()){
+                    xandYObject.setOldX(99);
+                    xandYObject.setOldY(99);
+                    xandYObject.setNewX(99);
+                    xandYObject.setNewY(99);
+                    robotsMap.put(animationRobot, xandYObject);
+                    System.out.println("TRUE");
+//                robotArray[startX][startY] = 0;
+
+
+                }
+
                 timer.stop();
-                System.out.println(animationRobot+" Done");
             } else {
 
                 double progress = (double) elapsedTime / animationDuration;
@@ -278,8 +291,11 @@ public class SwingArena extends JPanel implements ActionListener
             for(int i = 0; i < 9; i++){
                 for(int j = 0; j < 9; j++){
                     damage = wallArray[i][j];
-                    if(damage == 1)
+                    if(damage == WALL_UNDAMAGED)
                         drawImage(gfx, wall_undamaged, i, j);
+                    if(damage == WALL_WEAKENED)
+                        drawImage(gfx, wall_weakened, i, j);
+
                 }
             }
 
