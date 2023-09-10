@@ -14,10 +14,12 @@ import java.net.URL ;
 public class SwingArena extends JPanel implements ActionListener
 {
     // Represents the image to draw. You can modify this to introduce multiple images.
+    private static final int REMOVE = -1;
     private static final String IMAGE_FILE = "1554047213.png";
     private static final String CITADEL_FILE = "rg1024-isometric-tower.png";
     private static final String UNDAMAGED_WALL = "181478.png";
     private static final String WEAKENED_WALL = "181479.png";
+    private final static int NO_WALL = 0;
     private final int WALL_UNDAMAGED = 1;
     private final int WALL_WEAKENED = 2;
     private ImageIcon robot1;
@@ -26,10 +28,6 @@ public class SwingArena extends JPanel implements ActionListener
     private ImageIcon wall_weakened;
     private final double CITADEL_X = 4;
     private final double CITADEL_Y = 4;
-
-
-    // The following values are arbitrary, and you may need to modify them according to the 
-    // requirements of your application.
     private int gridWidth = 9;
     private int gridHeight = 9;
     private double robotX;
@@ -52,20 +50,24 @@ public class SwingArena extends JPanel implements ActionListener
     private String animationRobot = "";
     private Timer timer;
     private Object mutex = new Object();
+    private int newWeakenedWallX;
+    private int newWeakenedWallY;
+    private boolean lastCall;
+    private int wallState;
 
     /**
      * Creates a new arena object, loading the robot image.
      */
     public SwingArena()
     {
-        // Here's how (in Swing) you get an Image object from an image file that's part of the 
+        // Here's how (in Swing) you get an Image object from an image file that's part of the
         // project's "resources". If you need multiple different images, you can modify this code
         // accordingly.
 
         // (NOTE: _DO NOT_ use ordinary file-reading operations here, and in particular do not try
-        // to specify the file's path/location. That will ruin things if you try to create a 
-        // distributable version of your code with './gradlew build'. The approach below is how a 
-        // project is supposed to read its own internal resources, and should work both for 
+        // to specify the file's path/location. That will ruin things if you try to create a
+        // distributable version of your code with './gradlew build'. The approach below is how a
+        // project is supposed to read its own internal resources, and should work both for
         // './gradlew run' and './gradlew build'.)
 
         URL url = getClass().getClassLoader().getResource(IMAGE_FILE);
@@ -122,12 +124,6 @@ public class SwingArena extends JPanel implements ActionListener
             timer = new Timer(animationInterval, this);
             timer.setInitialDelay(0);
             startAnimation();
-
-            xandYObject = robotsMap.get(animationRobot);
-            xandYObject.setOldX(9);
-            xandYObject.setOldY(9);
-            robotsMap.put(animationRobot, xandYObject);
-            robotArray[startX][startY] = 0;
         }
 
 
@@ -143,7 +139,17 @@ public class SwingArena extends JPanel implements ActionListener
 
     }
     public void setWallPosition(int x, int y, int wallState){
-        wallArray[x][y] = wallState;
+        this.wallState = wallState;
+        if(wallState == WALL_WEAKENED){
+            newWeakenedWallX = x;
+            newWeakenedWallY = y;
+        }
+        else if(wallState == NO_WALL){
+            newWeakenedWallX = x;
+            newWeakenedWallY = y;
+        }
+        else
+            wallArray[x][y] = wallState;
     }
 
     public void startAnimation() {
@@ -155,40 +161,48 @@ public class SwingArena extends JPanel implements ActionListener
     public void actionPerformed(ActionEvent e) {
         synchronized (mutex){
             long elapsedTime = System.currentTimeMillis() - startTime;
+            if(timer.isRunning()){
+                if (elapsedTime >= animationDuration) {
 
-            if (elapsedTime >= animationDuration) {
-                XandYObject xandYObject = robotsMap.get(animationRobot);
+                    XandYObject xandYObject = robotsMap.get(animationRobot);
 
-                if(xandYObject.getDestroyed()){
-                    xandYObject.setOldX(99);
-                    xandYObject.setOldY(99);
-                    xandYObject.setNewX(99);
-                    xandYObject.setNewY(99);
-                    robotsMap.put(animationRobot, xandYObject);
-                    System.out.println("TRUE");
+                    if(xandYObject.getDestroyed()){
+                        robotsMap.remove(animationRobot);
+                        System.out.println("Destoyed "+animationRobot);
+                        animationRobot = REMOVE+"";
+                        animationRobotX = REMOVE;
+                        animationRobotY = REMOVE;
+                        lastCall = true;
+                        wallArray[newWeakenedWallX][newWeakenedWallY] = wallState;
+                        repaint();
+                    }
+                    else{
+                        xandYObject = robotsMap.get(animationRobot);
+                        xandYObject.setOldX(REMOVE);
+                        xandYObject.setOldY(REMOVE);
+                        robotsMap.put(animationRobot, xandYObject);
 //                robotArray[startX][startY] = 0;
+                    }
+                    timer.stop();
 
+                } else {
 
+                    double progress = (double) elapsedTime / animationDuration;
+                    animationRobotX = (startX + progress * (endX - startX));
+                    animationRobotY = (startY + progress * (endY - startY));
+
+                    repaint();
                 }
-
-                timer.stop();
-            } else {
-
-                double progress = (double) elapsedTime / animationDuration;
-                animationRobotX = (startX + progress * (endX - startX));
-                animationRobotY = (startY + progress * (endY - startY));
-//            System.out.printf(("Current x - %f, currentY - %f%n"), robotX, robotY);
-
-                repaint();
             }
+
         }
 
     }
 
 
     /**
-     * Adds a callback for when the user clicks on a grid square within the arena. The callback 
-     * (of type ArenaListener) receives the grid (x,y) coordinates as parameters to the 
+     * Adds a callback for when the user clicks on a grid square within the arena. The callback
+     * (of type ArenaListener) receives the grid (x,y) coordinates as parameters to the
      * 'squareClicked()' method.
      */
     public void addListener(ArenaListener newListener)
@@ -220,7 +234,7 @@ public class SwingArena extends JPanel implements ActionListener
 
 
     /**
-     * This method is called in order to redraw the screen, either because the user is manipulating 
+     * This method is called in order to redraw the screen, either because the user is manipulating
      * the window, OR because you've called 'repaint()'.
      *
      * You will need to modify the last part of this method; specifically the sequence of calls to
@@ -278,13 +292,11 @@ public class SwingArena extends JPanel implements ActionListener
                     drawLabel(gfx, robotName, robotX, robotY);
                 }
 
-                if(!animationRobot.equals("")){
-                    drawImage(gfx, robot1, animationRobotX, animationRobotY);
-                    drawLabel(gfx, animationRobot, animationRobotX, animationRobotY);
-                }
+            }
 
-
-
+            if(!animationRobot.equals("")){
+                drawImage(gfx, robot1, animationRobotX, animationRobotY);
+                drawLabel(gfx, animationRobot, animationRobotX, animationRobotY);
             }
 
             int damage;
@@ -293,8 +305,16 @@ public class SwingArena extends JPanel implements ActionListener
                     damage = wallArray[i][j];
                     if(damage == WALL_UNDAMAGED)
                         drawImage(gfx, wall_undamaged, i, j);
-                    if(damage == WALL_WEAKENED)
-                        drawImage(gfx, wall_weakened, i, j);
+                    if(damage == WALL_WEAKENED){
+                        if(newWeakenedWallX == i && newWeakenedWallY == j){ // checks whether this is the newly damaged wall
+                            if(lastCall){
+                                drawImage(gfx, wall_weakened, i, j);
+                            }
+                        }
+                        else{
+                            drawImage(gfx, wall_weakened, i, j);
+                        }
+                    }
 
                 }
             }
@@ -308,21 +328,21 @@ public class SwingArena extends JPanel implements ActionListener
 
 
     /**
-     * Draw an image in a specific grid location. *Only* call this from within paintComponent(). 
+     * Draw an image in a specific grid location. *Only* call this from within paintComponent().
      *
-     * Note that the grid location can be fractional, so that (for instance), you can draw an image 
+     * Note that the grid location can be fractional, so that (for instance), you can draw an image
      * at location (3.5,4), and it will appear on the boundary between grid cells (3,4) and (4,4).
      *
      * You shouldn't need to modify this method.
      */
     private void drawImage(Graphics2D gfx, ImageIcon icon, double gridX, double gridY)
     {
-        // Get the pixel coordinates representing the centre of where the image is to be drawn. 
+        // Get the pixel coordinates representing the centre of where the image is to be drawn.
         double x = (gridX + 0.5) * gridSquareSize;
         double y = (gridY + 0.5) * gridSquareSize;
 
-        // We also need to know how "big" to make the image. The image file has a natural width 
-        // and height, but that's not necessarily the size we want to draw it on the screen. We 
+        // We also need to know how "big" to make the image. The image file has a natural width
+        // and height, but that's not necessarily the size we want to draw it on the screen. We
         // do, however, want to preserve its aspect ratio.
         double fullSizePixelWidth = (double) robot1.getIconWidth();
         double fullSizePixelHeight = (double) robot1.getIconHeight();
@@ -330,15 +350,15 @@ public class SwingArena extends JPanel implements ActionListener
         double displayedPixelWidth, displayedPixelHeight;
         if(fullSizePixelWidth > fullSizePixelHeight)
         {
-            // Here, the image is wider than it is high, so we'll display it such that it's as 
-            // wide as a full grid cell, and the height will be set to preserve the aspect 
+            // Here, the image is wider than it is high, so we'll display it such that it's as
+            // wide as a full grid cell, and the height will be set to preserve the aspect
             // ratio.
             displayedPixelWidth = gridSquareSize;
             displayedPixelHeight = gridSquareSize * fullSizePixelHeight / fullSizePixelWidth;
         }
         else
         {
-            // Otherwise, it's the other way around -- full height, and width is set to 
+            // Otherwise, it's the other way around -- full height, and width is set to
             // preserve the aspect ratio.
             displayedPixelHeight = gridSquareSize;
             displayedPixelWidth = gridSquareSize * fullSizePixelWidth / fullSizePixelHeight;
@@ -355,8 +375,8 @@ public class SwingArena extends JPanel implements ActionListener
 
 
     /**
-     * Displays a string of text underneath a specific grid location. *Only* call this from within 
-     * paintComponent(). 
+     * Displays a string of text underneath a specific grid location. *Only* call this from within
+     * paintComponent().
      *
      * You shouldn't need to modify this method.
      */
@@ -370,7 +390,7 @@ public class SwingArena extends JPanel implements ActionListener
     }
 
     /**
-     * Draws a (slightly clipped) line between two grid coordinates. 
+     * Draws a (slightly clipped) line between two grid coordinates.
      *
      * You shouldn't need to modify this method.
      */

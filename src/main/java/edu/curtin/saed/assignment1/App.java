@@ -3,6 +3,7 @@ package edu.curtin.saed.assignment1;
 import org.jetbrains.annotations.NotNull;
 
 import java.awt.*;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.*;
 import java.util.logging.Logger;
@@ -19,9 +20,13 @@ public class App
     private static final int OCCUPIED_ROBOTS_WALLS = 3;
     private static final int OCCUPIED_WALLS = 2;
     private final static int OCCUPIED_ALL = 4;
+    private final static int OCCUPIED_WEAKENED_WALLS = 6;
+    private final static int OCCUPIED_UNDAMAGED_WALLS = 7;
     private final static int OCCUPIED_ROBOTS = 5;
     private final static int WALL_UNDAMAGED = 1;
     private final static int WALL_WEAKENED = 2;
+    private final static int NO_WALL = 0;
+    private static Map<String, Object> destroyedRobots = new HashMap<>();
 
     public static void main(String[] args)
     {
@@ -172,14 +177,14 @@ public class App
         int x, y =0;
         final int DELAYMAX = 2;
         final int DELAYMIN = 1;
-        Boolean freeToMove;
+        boolean freeToMove;
 
 
         delay = xandYObject.getDelay();
         x = xandYObject.getNewX();
         y = xandYObject.getNewY();
 
-        while(true){
+        while(!destroyedRobots.containsKey(robotName)){
             direction = (int) (Math.random() * (DELAYMAX - DELAYMIN + 1) + DELAYMIN);
 
             try {
@@ -282,6 +287,10 @@ public class App
                 }
             }
         }
+
+        if(destroyedRobots.containsKey(robotName)){
+            System.out.println(robotName);
+        }
     }
     private static void RandomMovingAttempt(String robotName, XandYObject xandYObject){
         int direction;
@@ -353,15 +362,26 @@ public class App
         if(IsOccupied(newX, newY, OCCUPIED_ROBOTS))
             freeToMove = false;
 
-        if(IsOccupied(newX, newY, OCCUPIED_WALLS)){
+        if(IsOccupied(newX, newY, OCCUPIED_UNDAMAGED_WALLS)){
             xandYObject.setOldX(xandYObject.getNewX());
             xandYObject.setOldY(xandYObject.getNewY());
             xandYObject.setNewX(newX);
             xandYObject.setNewY(newY);
             xandYObject.setDestroyed(true);
             arena.setRobotPosition(robotName, xandYObject);
-
             arena.setWallPosition(newX, newY, WALL_WEAKENED);
+            destroyedRobots.put(robotName, new Object());
+        }
+
+        if(IsOccupied(newX, newY, OCCUPIED_WEAKENED_WALLS)){
+            xandYObject.setOldX(xandYObject.getNewX());
+            xandYObject.setOldY(xandYObject.getNewY());
+            xandYObject.setNewX(newX);
+            xandYObject.setNewY(newY);
+            xandYObject.setDestroyed(true);
+            arena.setRobotPosition(robotName, xandYObject);
+            arena.setWallPosition(newX, newY, NO_WALL);
+            destroyedRobots.put(robotName, new Object());
         }
 
         if(freeToMove){
@@ -370,6 +390,7 @@ public class App
             xandYObject.setNewX(newX);
             xandYObject.setNewY(newY);
             arena.setRobotPosition(robotName, xandYObject);
+
         }
 
         return freeToMove;
@@ -441,7 +462,7 @@ public class App
                 }
             }
             case 2 -> { // Occupied by walls
-                if (wallArray[x][y] == 1)
+                if (wallArray[x][y] == 1 || wallArray[x][y] == 2)
                     occupied = true;
             }
             case 3 -> { // Occupied by robots and walls
@@ -471,6 +492,14 @@ public class App
                         occupied = true;
                     }
                 }
+            }
+            case 6 -> { // Occupied by weakened walls
+                if (wallArray[x][y] == 2)
+                    occupied = true;
+            }
+            case 7 -> { // Occupied by undamaged walls
+                if (wallArray[x][y] == 1)
+                    occupied = true;
             }
         }
 
