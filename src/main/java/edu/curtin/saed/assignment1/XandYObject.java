@@ -5,6 +5,7 @@ import java.util.concurrent.ExecutorService;
 public class XandYObject {
     private int newX, newY, oldX, oldY;
     private int delay;
+    private boolean destroyed = false;
     private ExecutorService executorService;
 
     public XandYObject(int newX, int newY, int delay) {
@@ -43,7 +44,13 @@ public class XandYObject {
     public void setOldY(int oldY) {
         this.oldY = oldY;
     }
+    public boolean getDestroyed() {
+        return destroyed;
+    }
 
+    public void setDestroyed(boolean destroyed) {
+        this.destroyed = destroyed;
+    }
 
     @Override
     public String toString() {
