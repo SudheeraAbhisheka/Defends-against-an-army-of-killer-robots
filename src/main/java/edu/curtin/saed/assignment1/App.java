@@ -3,6 +3,7 @@ package edu.curtin.saed.assignment1;
 import org.jetbrains.annotations.NotNull;
 
 import java.awt.*;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.*;
@@ -15,8 +16,6 @@ public class App
     private static ExecutorService executorService;
     private static SwingArena arena;
     private static int robotNumber = 1;
-    private BlockingQueue<SwingArena> queue = new ArrayBlockingQueue<>(81);
-    private static int wallsCount = 1;
     private static final int OCCUPIED_ROBOTS_WALLS = 3;
     private static final int OCCUPIED_WALLS = 2;
     private final static int OCCUPIED_ALL = 4;
@@ -26,15 +25,16 @@ public class App
     private final static int WALL_UNDAMAGED = 1;
     private final static int WALL_WEAKENED = 2;
     private final static int NO_WALL = 0;
+    private static int wallCount;
     private static Map<String, Object> destroyedRobots = new HashMap<>();
 
     public static void main(String[] args)
     {
-        BlockingQueue<XandYObject> blockingQueue = new ArrayBlockingQueue<>(10);
+        BlockingQueue<XandYObject> blockingQueue = new ArrayBlockingQueue<>(20);
         final int OCCUPIED_CITADEL = 1;
         final int NO_DELAY = 0;
 
-        executorService = Executors.newFixedThreadPool(81);
+        executorService = Executors.newCachedThreadPool();
 
         // Note: SwingUtilities.invokeLater() is equivalent to JavaFX's Platform.runLater().
         SwingUtilities.invokeLater(() ->
@@ -43,20 +43,31 @@ public class App
             arena = new SwingArena();
 
             CompletableFuture.runAsync(App::RobotsAppearing, executorService);
-
-            arena.addListener((x, y) ->
+            CompletableFuture.runAsync(() -> arena.addListener((x, y) ->
             {
-//                System.out.println("Arena click at (" + x + "," + y + ")");
-                String s = String.format("%s, %s", x, y);
-                logger.append(s+"\n");
+                String s;
 
                 if(!IsOccupied(x, y, OCCUPIED_CITADEL)){
-                    if(wallsCount < 10){
-                        blockingQueue.add(new XandYObject(x, y, NO_DELAY));
-                        wallsCount++;
-                    }
+                    s = String.format("%s, %s", x, y);
+                    logger.append(s+"\n");
+
+                    blockingQueue.add(new XandYObject(x, y, NO_DELAY));
                 }
-            });
+            }));
+
+//            arena.addListener((x, y) ->
+//            {
+////                System.out.println("Arena click at (" + x + "," + y + ")");
+//                String s = String.format("%s, %s", x, y);
+//                logger.append(s+"\n");
+//
+//                if(!IsOccupied(x, y, OCCUPIED_CITADEL)){
+//                    if(wallsCount < 10){
+//                        blockingQueue.add(new XandYObject(x, y, NO_DELAY));
+//                        wallsCount++;
+//                    }
+//                }
+//            });
 
             CompletableFuture.runAsync(() -> FortressWall(blockingQueue));
 
@@ -155,17 +166,18 @@ public class App
                 // do nothing
             }
             else{
-                arena.setRobotPosition(""+robotNumber, new XandYObject(x, y, delay), 0);
-                CompletableFuture.runAsync(() -> TowardsTheCitadel(""+robotNumber, new XandYObject(x, y, delay)), executorService);
+                if(robotNumber < 2){
+                    arena.setRobotPosition(""+robotNumber, new XandYObject(x, y, delay), 0);
+                    CompletableFuture.runAsync(() -> TowardsTheCitadel(""+robotNumber, new XandYObject(x, y, delay)), executorService);
 
-                try {
-                    Thread.sleep(1500);
-                } catch (InterruptedException e) {
-                    throw new RuntimeException(e);
+                    try {
+                        Thread.sleep(1500);
+                    } catch (InterruptedException e) {
+                        throw new RuntimeException(e);
+                    }
+
+                    robotNumber++;
                 }
-
-                robotNumber++;
-
             }
         }
 
@@ -287,10 +299,6 @@ public class App
                 }
             }
         }
-
-        if(destroyedRobots.containsKey(robotName)){
-            System.out.println(robotName);
-        }
     }
     private static void RandomMovingAttempt(String robotName, XandYObject xandYObject){
         int direction;
@@ -381,6 +389,7 @@ public class App
             xandYObject.setDestroyed(true);
             arena.setRobotPosition(robotName, xandYObject);
             arena.setWallPosition(newX, newY, NO_WALL);
+            wallCount--;
             destroyedRobots.put(robotName, new Object());
         }
 
@@ -403,16 +412,15 @@ public class App
         while(true){
             try {
                 xandYObject = blockingQueue.take();
-                wallsCount--;
-
 
                 x = xandYObject.getNewX();
                 y = xandYObject.getNewY();
 
                 occupied = IsOccupied(x, y, OCCUPIED_ALL);
 
-                if(!occupied){
+                if(!occupied && wallCount < 10){
                     arena.setWallPosition(x, y, WALL_UNDAMAGED);
+                    wallCount++;
 
                     try {
                         Thread.sleep(2000);
@@ -423,19 +431,19 @@ public class App
 //            String s = String.format("%s, %s", x, y);
 //            logger.append(s+"\n");
                 }
-                else{
-                    Map<String, XandYObject> robotsMap;
-                    robotsMap = arena.getRobotsMap();
-
-                    for(Map.Entry<String, XandYObject> e : robotsMap.entrySet()){
-                        XandYObject o = e.getValue();
-
-                        if((x == o.getNewX() && y == o.getNewY() ) || (x == o.getOldX() && y == o.getOldY())){
-                            String s = String.format("%s, %d, %d, %d, %d", e.getKey(), o.getOldX(), o.getOldY(), o.getNewX(), o.getNewY());
-                            logger.append(s+"\n");
-                        }
-                    }
-                }
+//                else{
+//                    Map<String, XandYObject> robotsMap;
+//                    robotsMap = arena.getRobotsMap();
+//
+//                    for(Map.Entry<String, XandYObject> e : robotsMap.entrySet()){
+//                        XandYObject o = e.getValue();
+//
+//                        if((x == o.getNewX() && y == o.getNewY() ) || (x == o.getOldX() && y == o.getOldY())){
+//                            String s = String.format("%s, %d, %d, %d, %d", e.getKey(), o.getOldX(), o.getOldY(), o.getNewX(), o.getNewY());
+//                            logger.append(s+"\n");
+//                        }
+//                    }
+//                }
 
             } catch (InterruptedException e) {
                 System.out.println(e);

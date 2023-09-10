@@ -44,7 +44,7 @@ public class XandYObject {
     public void setOldY(int oldY) {
         this.oldY = oldY;
     }
-    public boolean getDestroyed() {
+    public boolean isDestroyed() {
         return destroyed;
     }
 

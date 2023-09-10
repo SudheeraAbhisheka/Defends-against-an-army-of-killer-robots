@@ -54,6 +54,8 @@ public class SwingArena extends JPanel implements ActionListener
     private int newWeakenedWallY;
     private boolean lastCall;
     private int wallState;
+    private boolean robotDestroyed = false;
+    private XandYObject xandYObject;
 
     /**
      * Creates a new arena object, loading the robot image.
@@ -114,6 +116,8 @@ public class SwingArena extends JPanel implements ActionListener
             endY = xandYObject.getNewY();
             startX = xandYObject.getOldX();
             startY = xandYObject.getOldY();
+            robotDestroyed = xandYObject.isDestroyed();
+            this.xandYObject = xandYObject;
 
             /************/
 
@@ -163,24 +167,21 @@ public class SwingArena extends JPanel implements ActionListener
             long elapsedTime = System.currentTimeMillis() - startTime;
             if(timer.isRunning()){
                 if (elapsedTime >= animationDuration) {
-
-                    XandYObject xandYObject = robotsMap.get(animationRobot);
-
-                    if(xandYObject.getDestroyed()){
+                    if(robotDestroyed){
                         robotsMap.remove(animationRobot);
-                        System.out.println("Destoyed "+animationRobot);
+                        System.out.printf("%s removed %n", animationRobot);
                         animationRobot = REMOVE+"";
-                        animationRobotX = REMOVE;
-                        animationRobotY = REMOVE;
+//                        animationRobotX = REMOVE;
+//                        animationRobotY = REMOVE;
                         lastCall = true;
                         wallArray[newWeakenedWallX][newWeakenedWallY] = wallState;
                         repaint();
                     }
-                    else{
-                        xandYObject = robotsMap.get(animationRobot);
+                    else{ // Resetting position, after robot move
                         xandYObject.setOldX(REMOVE);
                         xandYObject.setOldY(REMOVE);
                         robotsMap.put(animationRobot, xandYObject);
+
 //                robotArray[startX][startY] = 0;
                     }
                     timer.stop();
@@ -294,9 +295,14 @@ public class SwingArena extends JPanel implements ActionListener
 
             }
 
-            if(!animationRobot.equals("")){
-                drawImage(gfx, robot1, animationRobotX, animationRobotY);
-                drawLabel(gfx, animationRobot, animationRobotX, animationRobotY);
+            if(lastCall){
+                lastCall = true;
+            }
+            else{
+                if(!animationRobot.equals("")){
+                    drawImage(gfx, robot1, animationRobotX, animationRobotY);
+                    drawLabel(gfx, animationRobot, animationRobotX, animationRobotY);
+                }
             }
 
             int damage;
