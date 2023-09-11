@@ -161,17 +161,22 @@ public class SwingArena extends JPanel implements ActionListener
 
     @Override
     public void actionPerformed(ActionEvent e) {
-        synchronized (mutex){
             long elapsedTime = System.currentTimeMillis() - startTime;
             if(timer.isRunning()){
                 if (elapsedTime >= animationDuration) {
-//                    XandYObject  xandYObject = robotsMap.get(animationRobot);
+                    XandYObject  xandYObject = robotsMap.get(animationRobot);
+                    if(xandYObject.isDestroyed()){
+                        robotsMap.remove(animationRobot);
+                        animationRobot = REMOVE+"";
+                        animationRobotX = REMOVE;
+                        animationRobotY = REMOVE;
+
+                        repaint();
+                    }
 //                    if(xandYObject.isDestroyed()){
 //
 ////                        robotsMap.remove(animationRobot);
-////                        animationRobot = REMOVE+"";
-////                        animationRobotX = REMOVE;
-////                        animationRobotY = REMOVE;
+
 //                        lastCall = true;
 //                        wallArray[newWeakenedWallX][newWeakenedWallY] = wallState;
 //                        repaint();
@@ -194,8 +199,8 @@ public class SwingArena extends JPanel implements ActionListener
                     repaint();
                 }
             }
-
-        }
+            if(animationRobot.equals("3"))
+                System.out.printf("%s %f %n", "Elapsed time", (double)elapsedTime);
 
     }
 

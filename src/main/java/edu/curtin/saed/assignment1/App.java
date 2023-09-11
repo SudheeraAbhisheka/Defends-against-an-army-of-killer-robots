@@ -26,10 +26,7 @@ public class App
     private final static int WALL_WEAKENED = 2;
     private final static int NO_WALL = 0;
     private static int wallCount;
-    private static Map<String, Object> destroyedRobots = new HashMap<>();
-//    private static BlockingQueue<String> destroyedRobots = new ArrayBlockingQueue<>(81);
-//    private static ConcurrentHashMap<String, Object> destroyedRobots = new ConcurrentHashMap<>();
-    private final static int ROBOTS_LIMIT = 6; // temporary
+    private final static int ROBOTS_LIMIT = 16; // temporary
 
     public static void main(String[] args)
     {
@@ -152,7 +149,7 @@ public class App
         if(robotNumber == 1){
 
             arena.setRobotPosition(""+robotNumber, new XandYObject(x, y, delay), 0);
-            CompletableFuture.runAsync(() -> TowardsTheCitadel(""+robotNumber, new XandYObject(x, y, delay)), executorService);
+            CompletableFuture.runAsync(() -> RandomMovingAttempt(""+robotNumber, new XandYObject(x, y, delay)), executorService);
 
             try {
                 Thread.sleep(1500);
@@ -171,7 +168,7 @@ public class App
             else{
                 if(robotNumber < ROBOTS_LIMIT){
                     arena.setRobotPosition(""+robotNumber, new XandYObject(x, y, delay), 0);
-                    CompletableFuture.runAsync(() -> TowardsTheCitadel(""+robotNumber, new XandYObject(x, y, delay)), executorService);
+                    CompletableFuture.runAsync(() -> RandomMovingAttempt(""+robotNumber, new XandYObject(x, y, delay)), executorService);
 
                     try {
                         Thread.sleep(1500);
@@ -199,16 +196,12 @@ public class App
         x = xandYObject.getNewX();
         y = xandYObject.getNewY();
 
-
-        while(!destroyedRobots.containsKey(robotName)){
+        while(!xandYObject.isDestroyed()){
 
             // xandYObject.isDestroyed()
 
 //            String s = String.format("%s, %s, %b", robotName, "Destroyed", destroyedRobots.containsKey(robotName));
 //            System.out.println(s);
-
-            System.out.println("Flag");
-
 
             direction = (int) (Math.random() * (DELAYMAX - DELAYMIN + 1) + DELAYMIN);
 
@@ -390,7 +383,6 @@ public class App
             xandYObject.setDestroyed(true);
             arena.setRobotPosition(robotName, xandYObject);
             arena.setWallPosition(newX, newY, WALL_WEAKENED);
-            destroyedRobots.put(robotName, new Object());
         }
 
         if(IsOccupied(newX, newY, OCCUPIED_WEAKENED_WALLS)){
@@ -402,7 +394,6 @@ public class App
             arena.setRobotPosition(robotName, xandYObject);
             arena.setWallPosition(newX, newY, NO_WALL);
             wallCount--;
-            destroyedRobots.put(robotName, new Object());
         }
 
         if(freeToMove){
