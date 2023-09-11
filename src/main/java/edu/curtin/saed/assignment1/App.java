@@ -27,9 +27,8 @@ public class App
     private final static int NO_WALL = 0;
     private static int wallCount;
     private final static int ROBOTS_LIMIT = 16; // temporary
-
-    public static void main(String[] args)
-    {
+    private static ConcurrentHashMap<String, XandYObject> robotsMap = new ConcurrentHashMap<>();
+    public static void main(String[] args) {
         BlockingQueue<XandYObject> blockingQueue = new ArrayBlockingQueue<>(20);
         final int OCCUPIED_CITADEL = 1;
         final int NO_DELAY = 0;
@@ -43,7 +42,9 @@ public class App
             arena = new SwingArena();
 
             CompletableFuture.runAsync(App::RobotsAppearing, executorService);
-            CompletableFuture.runAsync(() -> arena.addListener((x, y) ->
+            CompletableFuture.runAsync(App::displayingThread, executorService);
+
+            arena.addListener((x, y) ->
             {
                 String s;
 
@@ -53,21 +54,7 @@ public class App
 
                     blockingQueue.add(new XandYObject(x, y, NO_DELAY));
                 }
-            }));
-
-//            arena.addListener((x, y) ->
-//            {
-////                System.out.println("Arena click at (" + x + "," + y + ")");
-//                String s = String.format("%s, %s", x, y);
-//                logger.append(s+"\n");
-//
-//                if(!IsOccupied(x, y, OCCUPIED_CITADEL)){
-//                    if(wallsCount < 10){
-//                        blockingQueue.add(new XandYObject(x, y, NO_DELAY));
-//                        wallsCount++;
-//                    }
-//                }
-//            });
+            });
 
             CompletableFuture.runAsync(() -> FortressWall(blockingQueue));
 
@@ -148,7 +135,8 @@ public class App
 
         if(robotNumber == 1){
 
-            arena.setRobotPosition(""+robotNumber, new XandYObject(x, y, delay), 0);
+//            arena.setRobotPosition(""+robotNumber, new XandYObject(x, y, delay), 0);
+            robotsMap.put(""+robotNumber, new XandYObject(x, y, delay));
             CompletableFuture.runAsync(() -> RandomMovingAttempt(""+robotNumber, new XandYObject(x, y, delay)), executorService);
 
             try {
@@ -167,7 +155,8 @@ public class App
             }
             else{
                 if(robotNumber < ROBOTS_LIMIT){
-                    arena.setRobotPosition(""+robotNumber, new XandYObject(x, y, delay), 0);
+//                    arena.setRobotPosition(""+robotNumber, new XandYObject(x, y, delay), 0);
+                    robotsMap.put(""+robotNumber, new XandYObject(x, y, delay));
                     CompletableFuture.runAsync(() -> RandomMovingAttempt(""+robotNumber, new XandYObject(x, y, delay)), executorService);
 
                     try {
@@ -381,8 +370,9 @@ public class App
             xandYObject.setNewX(newX);
             xandYObject.setNewY(newY);
             xandYObject.setDestroyed(true);
-            arena.setRobotPosition(robotName, xandYObject);
-            arena.setWallPosition(newX, newY, WALL_WEAKENED);
+            robotsMap.put(robotName, xandYObject);
+//            arena.setRobotPosition(robotName, xandYObject);
+//            arena.setWallPosition(newX, newY, WALL_WEAKENED);
         }
 
         if(IsOccupied(newX, newY, OCCUPIED_WEAKENED_WALLS)){
@@ -391,8 +381,9 @@ public class App
             xandYObject.setNewX(newX);
             xandYObject.setNewY(newY);
             xandYObject.setDestroyed(true);
-            arena.setRobotPosition(robotName, xandYObject);
-            arena.setWallPosition(newX, newY, NO_WALL);
+            robotsMap.put(robotName, xandYObject);
+//            arena.setRobotPosition(robotName, xandYObject);
+//            arena.setWallPosition(newX, newY, NO_WALL);
             wallCount--;
         }
 
@@ -401,8 +392,9 @@ public class App
             xandYObject.setOldY(xandYObject.getNewY());
             xandYObject.setNewX(newX);
             xandYObject.setNewY(newY);
-            arena.setRobotPosition(robotName, xandYObject);
-
+            xandYObject.startTimer();
+            robotsMap.put(robotName, xandYObject);
+//            arena.setRobotPosition(robotName, xandYObject);
         }
 
         return freeToMove;
@@ -422,7 +414,7 @@ public class App
                 occupied = IsOccupied(x, y, OCCUPIED_ALL);
 
                 if(!occupied && wallCount < 10){
-                    arena.setWallPosition(x, y, WALL_UNDAMAGED);
+//                    arena.setWallPosition(x, y, WALL_UNDAMAGED);
                     wallCount++;
 
 //                    try {
@@ -522,5 +514,9 @@ public class App
 
         return occupied;
     }
-
+    private static void displayingThread(){
+        while(true){
+            arena.setRobotPosition(robotsMap);
+        }
+    }
 }

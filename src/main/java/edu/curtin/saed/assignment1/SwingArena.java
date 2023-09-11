@@ -11,7 +11,7 @@ import java.net.URL ;
 /**
  * A Swing GUI element that displays a grid on which you can draw images, text and lines.
  */
-public class SwingArena extends JPanel implements ActionListener
+public class SwingArena extends JPanel
 {
     // Represents the image to draw. You can modify this to introduce multiple images.
     private static final int REMOVE = -1;
@@ -36,7 +36,7 @@ public class SwingArena extends JPanel implements ActionListener
     private double animationRobotY;
     private double gridSquareSize; // Auto-calculated
     private List<ArenaListener> listeners = null;
-    private Map<String, XandYObject> robotsMap = new HashMap<>();
+    private Map<String, XandYObject> robotsMap;
     private Map<String, XandYObject> wallMap = new HashMap<>();
     private final int[][] wallArray = new int[9][9];
     private int[][] robotArray = new int[9][9];;
@@ -103,105 +103,11 @@ public class SwingArena extends JPanel implements ActionListener
      * many different robots in practice. This method currently just serves as a demonstration.
      */
 
-    public void setRobotPosition(String robotName, XandYObject xandYObject)
+    public void setRobotPosition(Map<String, XandYObject> robotsMap)
     {
-        synchronized (mutex){
-            robotsMap.put(robotName, xandYObject);
+        this.robotsMap = robotsMap;
 
-            this.animationRobot = robotName;
-            endX = xandYObject.getNewX();
-            endY = xandYObject.getNewY();
-            startX = xandYObject.getOldX();
-            startY = xandYObject.getOldY();
-
-            /************/
-
-            robotArray[endX][endY] = 1;
-            robotArray[startX][startY] = 1;
-
-            /************/
-            timer = new Timer(animationInterval, this);
-            timer.setInitialDelay(0);
-            startAnimation();
-        }
-
-
-    }
-    public void setRobotPosition(String robotName, XandYObject xandYObject, int FLAG) // Robots' startup positions
-    {
-        synchronized (mutex){
-            robotsMap.put(robotName, xandYObject);
-            robotArray[xandYObject.getNewX()][xandYObject.getNewY()] = 1;
-            repaint();
-        }
-
-
-    }
-    public void setWallPosition(int x, int y, int wallState){
-        synchronized (wallArray){
-            this.wallState = wallState;
-            if(wallState == WALL_WEAKENED){
-                newWeakenedWallX = x;
-                newWeakenedWallY = y;
-            }
-            else if(wallState == NO_WALL){
-                newWeakenedWallX = x;
-                newWeakenedWallY = y;
-            }
-            else
-                wallArray[x][y] = wallState;
-        }
-
-    }
-
-    public void startAnimation() {
-        startTime = System.currentTimeMillis();
-        timer.start();
-    }
-
-    @Override
-    public void actionPerformed(ActionEvent e) {
-            long elapsedTime = System.currentTimeMillis() - startTime;
-            if(timer.isRunning()){
-                if (elapsedTime >= animationDuration) {
-                    XandYObject  xandYObject = robotsMap.get(animationRobot);
-                    if(xandYObject.isDestroyed()){
-                        robotsMap.remove(animationRobot);
-                        animationRobot = REMOVE+"";
-                        animationRobotX = REMOVE;
-                        animationRobotY = REMOVE;
-
-                        repaint();
-                    }
-//                    if(xandYObject.isDestroyed()){
-//
-////                        robotsMap.remove(animationRobot);
-
-//                        lastCall = true;
-//                        wallArray[newWeakenedWallX][newWeakenedWallY] = wallState;
-//                        repaint();
-//                    }
-//                    else{ // Resetting position, after robot move
-//                        xandYObject.setOldX(REMOVE);
-//                        xandYObject.setOldY(REMOVE);
-//                        robotsMap.put(animationRobot, xandYObject);
-//
-////                robotArray[startX][startY] = 0;
-//                    }
-                    timer.stop();
-
-                } else {
-
-                    double progress = (double) elapsedTime / animationDuration;
-                    animationRobotX = (startX + progress * (endX - startX));
-                    animationRobotY = (startY + progress * (endY - startY));
-
-                    repaint();
-                }
-            }
-            if(animationRobot.equals("3"))
-                System.out.printf("%s %f %n", "Elapsed time", (double)elapsedTime);
-
+        repaint();
     }
 
 
@@ -248,89 +154,90 @@ public class SwingArena extends JPanel implements ActionListener
     @Override
     public void paintComponent(Graphics g)
     {
-        synchronized (mutex){
-            String robotName = "";
+        String robotName = "";
 
-            super.paintComponent(g);
-            Graphics2D gfx = (Graphics2D) g;
-            gfx.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
-                    RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+        super.paintComponent(g);
+        Graphics2D gfx = (Graphics2D) g;
+        gfx.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
+                RenderingHints.VALUE_INTERPOLATION_BICUBIC);
 
-            // First, calculate how big each grid cell should be, in pixels. (We do need to do this
-            // every time we repaint the arena, because the size can change.)
-            gridSquareSize = Math.min(
-                    (double) getWidth() / (double) gridWidth,
-                    (double) getHeight() / (double) gridHeight);
+        // First, calculate how big each grid cell should be, in pixels. (We do need to do this
+        // every time we repaint the arena, because the size can change.)
+        gridSquareSize = Math.min(
+                (double) getWidth() / (double) gridWidth,
+                (double) getHeight() / (double) gridHeight);
 
-            int arenaPixelWidth = (int) ((double) gridWidth * gridSquareSize);
-            int arenaPixelHeight = (int) ((double) gridHeight * gridSquareSize);
+        int arenaPixelWidth = (int) ((double) gridWidth * gridSquareSize);
+        int arenaPixelHeight = (int) ((double) gridHeight * gridSquareSize);
 
 
-            // Draw the arena grid lines. This may help for debugging purposes, and just generally
-            // to see what's going on.
-            gfx.setColor(Color.GRAY);
-            gfx.drawRect(0, 0, arenaPixelWidth - 1, arenaPixelHeight - 1); // Outer edge
+        // Draw the arena grid lines. This may help for debugging purposes, and just generally
+        // to see what's going on.
+        gfx.setColor(Color.GRAY);
+        gfx.drawRect(0, 0, arenaPixelWidth - 1, arenaPixelHeight - 1); // Outer edge
 
-            for(int gridX = 1; gridX < gridWidth; gridX++) // Internal vertical grid lines
+        for(int gridX = 1; gridX < gridWidth; gridX++) // Internal vertical grid lines
+        {
+            int x = (int) ((double) gridX * gridSquareSize);
+            gfx.drawLine(x, 0, x, arenaPixelHeight);
+        }
+
+        for(int gridY = 1; gridY < gridHeight; gridY++) // Internal horizontal grid lines
+        {
+            int y = (int) ((double) gridY * gridSquareSize);
+            gfx.drawLine(0, y, arenaPixelWidth, y);
+        }
+
+
+        // Invoke helper methods to draw things at the current location.
+        // ** You will need to adapt this to the requirements of your application. **
+
+
+        for(Map.Entry<String, XandYObject> b : robotsMap.entrySet()){
+            robotName = b.getKey();
+            if(b.getValue().isTimerStart()){
+                    robotX = b.getValue().getAnimatedCoordinates()[0];
+                    robotY = b.getValue().getAnimatedCoordinates()[1];
+            }
+            else{
+
+                    robotX = b.getValue().getNewX();
+                    robotY = b.getValue().getNewY();
+            }
+
+            if(!(robotX < 1 && robotY < 1))
             {
-                int x = (int) ((double) gridX * gridSquareSize);
-                gfx.drawLine(x, 0, x, arenaPixelHeight);
+                drawImage(gfx, robot1, robotX, robotY);
+                drawLabel(gfx, robotName, robotX, robotY);
             }
-
-            for(int gridY = 1; gridY < gridHeight; gridY++) // Internal horizontal grid lines
-            {
-                int y = (int) ((double) gridY * gridSquareSize);
-                gfx.drawLine(0, y, arenaPixelWidth, y);
-            }
-
-
-            // Invoke helper methods to draw things at the current location.
-            // ** You will need to adapt this to the requirements of your application. **
-
-
-            for(Map.Entry<String, XandYObject> b : robotsMap.entrySet()){
-                robotX = b.getValue().getNewX();
-                robotY = b.getValue().getNewY();
-                robotName = b.getKey();
-
-                if(!robotName.equals(animationRobot)){
-                    drawImage(gfx, robot1, robotX, robotY);
-                    drawLabel(gfx, robotName, robotX, robotY);
-                }
-
-            }
-
-
-                if(!animationRobot.equals("")){
-                    drawImage(gfx, robot1, animationRobotX, animationRobotY);
-                    drawLabel(gfx, animationRobot, animationRobotX, animationRobotY);
-                }
-
-            int damage;
-            for(int i = 0; i < 9; i++){
-                for(int j = 0; j < 9; j++){
-                    damage = wallArray[i][j];
-                    if(damage == WALL_UNDAMAGED)
-                        drawImage(gfx, wall_undamaged, i, j);
-                    if(damage == WALL_WEAKENED){
-                        if(newWeakenedWallX == i && newWeakenedWallY == j){ // checks whether this is the newly damaged wall
-                            if(lastCall){
-                                drawImage(gfx, wall_weakened, i, j);
-                                lastCall = false;
-                            }
-                        }
-                        else{
-                            drawImage(gfx, wall_weakened, i, j);
-                        }
-                    }
-
-                }
-            }
-
-            drawImage(gfx, citadel, CITADEL_X, CITADEL_Y);
-            drawLabel(gfx, "Citadel", CITADEL_X, CITADEL_Y);
 
         }
+
+
+//        int damage;
+//        for(int i = 0; i < 9; i++){
+//            for(int j = 0; j < 9; j++){
+//                damage = wallArray[i][j];
+//                if(damage == WALL_UNDAMAGED)
+//                    drawImage(gfx, wall_undamaged, i, j);
+//                if(damage == WALL_WEAKENED){
+//                    if(newWeakenedWallX == i && newWeakenedWallY == j){ // checks whether this is the newly damaged wall
+//                        if(lastCall){
+//                            drawImage(gfx, wall_weakened, i, j);
+//                            lastCall = false;
+//                        }
+//                    }
+//                    else{
+//                        drawImage(gfx, wall_weakened, i, j);
+//                    }
+//                }
+//
+//            }
+//        }
+
+        drawImage(gfx, citadel, CITADEL_X, CITADEL_Y);
+        drawLabel(gfx, "Citadel", CITADEL_X, CITADEL_Y);
+
 
     }
 

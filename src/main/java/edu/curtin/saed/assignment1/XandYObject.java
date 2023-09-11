@@ -1,19 +1,57 @@
 package edu.curtin.saed.assignment1;
 
-import java.util.concurrent.ExecutorService;
+import java.util.Timer;
 
 public class XandYObject {
     private int newX, newY, oldX, oldY;
-    private int delay;
+    private final int delay;
     private boolean destroyed = false;
-    private ExecutorService executorService;
+    private Timer timer = new java.util.Timer();
+    private long startTime;
+    private boolean timerStart = false;
+    private final int ANIMATION_DURATION = 400;
 
     public XandYObject(int newX, int newY, int delay) {
         this.newX = newX;
         this.newY = newY;
         this.delay = delay;
     }
+    public void startTimer(){
+        startTime = System.currentTimeMillis();
+        timerStart = true;
+    }
 
+    public double[] getAnimatedCoordinates(){
+        long elapsedTime = System.currentTimeMillis() - startTime;
+
+        int endX = getNewX();
+        int endY = getNewY();
+        int startX = getOldX();
+        int startY = getOldY();
+
+        double animatedX;
+        double animatedY;
+
+        double[] animatedCoordinates = new double[2];
+
+        if (elapsedTime >= ANIMATION_DURATION) {
+            timerStart = false;
+        } else {
+
+            double progress = (double) elapsedTime / ANIMATION_DURATION;
+            animatedX = (startX + progress * (endX - startX));
+            animatedY = (startY + progress * (endY - startY));
+
+            animatedCoordinates[0] = animatedX;
+            animatedCoordinates[1] = animatedY;
+        }
+
+        return animatedCoordinates;
+    }
+
+    public boolean isTimerStart(){
+        return timerStart;
+    }
     public int getOldX() {
         return oldX;
     }
@@ -30,6 +68,9 @@ public class XandYObject {
     public int getDelay() {
         return delay;
     }
+    public Timer getTimer() {
+        return timer;
+    }
 
     public void setNewX(int newX) {
         this.newX = newX;
@@ -44,6 +85,10 @@ public class XandYObject {
     public void setOldY(int oldY) {
         this.oldY = oldY;
     }
+    public void setTimer(Timer timer) {
+        this.timer = timer;
+    }
+
     public boolean isDestroyed() {
         return destroyed;
     }
