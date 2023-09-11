@@ -27,6 +27,9 @@ public class App
     private final static int NO_WALL = 0;
     private static int wallCount;
     private static Map<String, Object> destroyedRobots = new HashMap<>();
+//    private static BlockingQueue<String> destroyedRobots = new ArrayBlockingQueue<>(81);
+//    private static ConcurrentHashMap<String, Object> destroyedRobots = new ConcurrentHashMap<>();
+    private final static int ROBOTS_LIMIT = 6; // temporary
 
     public static void main(String[] args)
     {
@@ -166,7 +169,7 @@ public class App
                 // do nothing
             }
             else{
-                if(robotNumber < 2){
+                if(robotNumber < ROBOTS_LIMIT){
                     arena.setRobotPosition(""+robotNumber, new XandYObject(x, y, delay), 0);
                     CompletableFuture.runAsync(() -> TowardsTheCitadel(""+robotNumber, new XandYObject(x, y, delay)), executorService);
 
@@ -196,7 +199,17 @@ public class App
         x = xandYObject.getNewX();
         y = xandYObject.getNewY();
 
+
         while(!destroyedRobots.containsKey(robotName)){
+
+            // xandYObject.isDestroyed()
+
+//            String s = String.format("%s, %s, %b", robotName, "Destroyed", destroyedRobots.containsKey(robotName));
+//            System.out.println(s);
+
+            System.out.println("Flag");
+
+
             direction = (int) (Math.random() * (DELAYMAX - DELAYMIN + 1) + DELAYMIN);
 
             try {
@@ -211,20 +224,20 @@ public class App
                         if (x < 8) {
                             x++;
                             freeToMove = FreeToMove(robotName, xandYObject, x, y);
-                            if (!freeToMove) {
-                                x--;
-                                RandomMovingAttempt(robotName, xandYObject);
-                            }
+//                            if (!freeToMove) {
+//                                x--;
+//                                RandomMovingAttempt(robotName, xandYObject);
+//                            }
                         }
                     }
                     case 2 -> { // Moves down
                         if (y < 8) {
                             y++;
                             freeToMove = FreeToMove(robotName, xandYObject, x, y);
-                            if (!freeToMove) {
-                                y--;
-                                RandomMovingAttempt(robotName, xandYObject);
-                            }
+//                            if (!freeToMove) {
+//                                y--;
+//                                RandomMovingAttempt(robotName, xandYObject);
+//                            }
                         }
                     }
                 }
@@ -234,20 +247,20 @@ public class App
                         if (x > 0) {
                             x--;
                             freeToMove = FreeToMove(robotName, xandYObject, x, y);
-                            if (!freeToMove) {
-                                x++;
-                                RandomMovingAttempt(robotName, xandYObject);
-                            }
+//                            if (!freeToMove) {
+//                                x++;
+//                                RandomMovingAttempt(robotName, xandYObject);
+//                            }
                         }
                     }
                     case 2 -> { // Moves down
                         if (y < 8) {
                             y++;
                             freeToMove = FreeToMove(robotName, xandYObject, x, y);
-                            if (!freeToMove) {
-                                y--;
-                                RandomMovingAttempt(robotName, xandYObject);
-                            }
+//                            if (!freeToMove) {
+//                                y--;
+//                                RandomMovingAttempt(robotName, xandYObject);
+//                            }
                         }
                     }
                 }
@@ -257,20 +270,20 @@ public class App
                         if (y > 0) {
                             y--;
                             freeToMove = FreeToMove(robotName, xandYObject, x, y);
-                            if (!freeToMove) {
-                                y++;
-                                RandomMovingAttempt(robotName, xandYObject);
-                            }
+//                            if (!freeToMove) {
+//                                y++;
+//                                RandomMovingAttempt(robotName, xandYObject);
+//                            }
                         }
                     }
                     case 2 -> { // Moves right
                         if (x < 8) {
                             x++;
                             freeToMove = FreeToMove(robotName, xandYObject, x, y);
-                            if (!freeToMove) {
-                                x--;
-                                RandomMovingAttempt(robotName, xandYObject);
-                            }
+//                            if (!freeToMove) {
+//                                x--;
+//                                RandomMovingAttempt(robotName, xandYObject);
+//                            }
                         }
                     }
                 }
@@ -280,20 +293,20 @@ public class App
                         if (y > 0) {
                             y--;
                             freeToMove = FreeToMove(robotName, xandYObject, x, y);
-                            if (!freeToMove) {
-                                y++;
-                                RandomMovingAttempt(robotName, xandYObject);
-                            }
+//                            if (!freeToMove) {
+//                                y++;
+//                                RandomMovingAttempt(robotName, xandYObject);
+//                            }
                         }
                     }
                     case 2 -> { // Moves left
                         if (x > 0) {
                             x--;
                             freeToMove = FreeToMove(robotName, xandYObject, x, y);
-                            if (!freeToMove) {
-                                x++;
-                                RandomMovingAttempt(robotName, xandYObject);
-                            }
+//                            if (!freeToMove) {
+//                                x++;
+//                                RandomMovingAttempt(robotName, xandYObject);
+//                            }
                         }
                     }
                 }
@@ -313,7 +326,6 @@ public class App
         y = xandYObject.getNewY();
 
         while(true){
-
             direction = (int) (Math.random() * (DELAYMAX - DELAYMIN + 1) + DELAYMIN);
 
             try {
@@ -422,11 +434,11 @@ public class App
                     arena.setWallPosition(x, y, WALL_UNDAMAGED);
                     wallCount++;
 
-                    try {
-                        Thread.sleep(2000);
-                    } catch (InterruptedException e) {
-                        throw new RuntimeException(e);
-                    }
+//                    try {
+//                        Thread.sleep(2000);
+//                    } catch (InterruptedException e) {
+//                        throw new RuntimeException(e);
+//                    }
 
 //            String s = String.format("%s, %s", x, y);
 //            logger.append(s+"\n");

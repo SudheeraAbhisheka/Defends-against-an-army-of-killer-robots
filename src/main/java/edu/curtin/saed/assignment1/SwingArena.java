@@ -38,25 +38,22 @@ public class SwingArena extends JPanel implements ActionListener
     private List<ArenaListener> listeners = null;
     private Map<String, XandYObject> robotsMap = new HashMap<>();
     private Map<String, XandYObject> wallMap = new HashMap<>();
-    private int[][] wallArray = new int[9][9];
+    private final int[][] wallArray = new int[9][9];
     private int[][] robotArray = new int[9][9];;
-    private int startX;
-    private int startY;
-    private int endX;
-    private int endY;
+    private volatile int startX;
+    private volatile int startY;
+    private volatile int endX;
+    private volatile int endY;
     private int animationDuration = 400;
     private int animationInterval = 40;
     private long startTime; // Start time of the animation
-    private String animationRobot = "";
+    private volatile String animationRobot = "";
     private Timer timer;
-    private Object mutex = new Object();
+    private final Object mutex = new Object();
     private int newWeakenedWallX;
     private int newWeakenedWallY;
     private boolean lastCall;
     private int wallState;
-    private boolean robotDestroyed = false;
-    private XandYObject xandYObject;
-
     /**
      * Creates a new arena object, loading the robot image.
      */
@@ -116,8 +113,6 @@ public class SwingArena extends JPanel implements ActionListener
             endY = xandYObject.getNewY();
             startX = xandYObject.getOldX();
             startY = xandYObject.getOldY();
-            robotDestroyed = xandYObject.isDestroyed();
-            this.xandYObject = xandYObject;
 
             /************/
 
@@ -143,17 +138,20 @@ public class SwingArena extends JPanel implements ActionListener
 
     }
     public void setWallPosition(int x, int y, int wallState){
-        this.wallState = wallState;
-        if(wallState == WALL_WEAKENED){
-            newWeakenedWallX = x;
-            newWeakenedWallY = y;
+        synchronized (wallArray){
+            this.wallState = wallState;
+            if(wallState == WALL_WEAKENED){
+                newWeakenedWallX = x;
+                newWeakenedWallY = y;
+            }
+            else if(wallState == NO_WALL){
+                newWeakenedWallX = x;
+                newWeakenedWallY = y;
+            }
+            else
+                wallArray[x][y] = wallState;
         }
-        else if(wallState == NO_WALL){
-            newWeakenedWallX = x;
-            newWeakenedWallY = y;
-        }
-        else
-            wallArray[x][y] = wallState;
+
     }
 
     public void startAnimation() {
@@ -167,23 +165,24 @@ public class SwingArena extends JPanel implements ActionListener
             long elapsedTime = System.currentTimeMillis() - startTime;
             if(timer.isRunning()){
                 if (elapsedTime >= animationDuration) {
-                    if(robotDestroyed){
-                        robotsMap.remove(animationRobot);
-                        System.out.printf("%s removed %n", animationRobot);
-                        animationRobot = REMOVE+"";
-//                        animationRobotX = REMOVE;
-//                        animationRobotY = REMOVE;
-                        lastCall = true;
-                        wallArray[newWeakenedWallX][newWeakenedWallY] = wallState;
-                        repaint();
-                    }
-                    else{ // Resetting position, after robot move
-                        xandYObject.setOldX(REMOVE);
-                        xandYObject.setOldY(REMOVE);
-                        robotsMap.put(animationRobot, xandYObject);
-
-//                robotArray[startX][startY] = 0;
-                    }
+//                    XandYObject  xandYObject = robotsMap.get(animationRobot);
+//                    if(xandYObject.isDestroyed()){
+//
+////                        robotsMap.remove(animationRobot);
+////                        animationRobot = REMOVE+"";
+////                        animationRobotX = REMOVE;
+////                        animationRobotY = REMOVE;
+//                        lastCall = true;
+//                        wallArray[newWeakenedWallX][newWeakenedWallY] = wallState;
+//                        repaint();
+//                    }
+//                    else{ // Resetting position, after robot move
+//                        xandYObject.setOldX(REMOVE);
+//                        xandYObject.setOldY(REMOVE);
+//                        robotsMap.put(animationRobot, xandYObject);
+//
+////                robotArray[startX][startY] = 0;
+//                    }
                     timer.stop();
 
                 } else {
@@ -244,45 +243,46 @@ public class SwingArena extends JPanel implements ActionListener
     @Override
     public void paintComponent(Graphics g)
     {
-        String robotName = "";
-
-        super.paintComponent(g);
-        Graphics2D gfx = (Graphics2D) g;
-        gfx.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
-                RenderingHints.VALUE_INTERPOLATION_BICUBIC);
-
-        // First, calculate how big each grid cell should be, in pixels. (We do need to do this
-        // every time we repaint the arena, because the size can change.)
-        gridSquareSize = Math.min(
-                (double) getWidth() / (double) gridWidth,
-                (double) getHeight() / (double) gridHeight);
-
-        int arenaPixelWidth = (int) ((double) gridWidth * gridSquareSize);
-        int arenaPixelHeight = (int) ((double) gridHeight * gridSquareSize);
-
-
-        // Draw the arena grid lines. This may help for debugging purposes, and just generally
-        // to see what's going on.
-        gfx.setColor(Color.GRAY);
-        gfx.drawRect(0, 0, arenaPixelWidth - 1, arenaPixelHeight - 1); // Outer edge
-
-        for(int gridX = 1; gridX < gridWidth; gridX++) // Internal vertical grid lines
-        {
-            int x = (int) ((double) gridX * gridSquareSize);
-            gfx.drawLine(x, 0, x, arenaPixelHeight);
-        }
-
-        for(int gridY = 1; gridY < gridHeight; gridY++) // Internal horizontal grid lines
-        {
-            int y = (int) ((double) gridY * gridSquareSize);
-            gfx.drawLine(0, y, arenaPixelWidth, y);
-        }
-
-
-        // Invoke helper methods to draw things at the current location.
-        // ** You will need to adapt this to the requirements of your application. **
-
         synchronized (mutex){
+            String robotName = "";
+
+            super.paintComponent(g);
+            Graphics2D gfx = (Graphics2D) g;
+            gfx.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
+                    RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+
+            // First, calculate how big each grid cell should be, in pixels. (We do need to do this
+            // every time we repaint the arena, because the size can change.)
+            gridSquareSize = Math.min(
+                    (double) getWidth() / (double) gridWidth,
+                    (double) getHeight() / (double) gridHeight);
+
+            int arenaPixelWidth = (int) ((double) gridWidth * gridSquareSize);
+            int arenaPixelHeight = (int) ((double) gridHeight * gridSquareSize);
+
+
+            // Draw the arena grid lines. This may help for debugging purposes, and just generally
+            // to see what's going on.
+            gfx.setColor(Color.GRAY);
+            gfx.drawRect(0, 0, arenaPixelWidth - 1, arenaPixelHeight - 1); // Outer edge
+
+            for(int gridX = 1; gridX < gridWidth; gridX++) // Internal vertical grid lines
+            {
+                int x = (int) ((double) gridX * gridSquareSize);
+                gfx.drawLine(x, 0, x, arenaPixelHeight);
+            }
+
+            for(int gridY = 1; gridY < gridHeight; gridY++) // Internal horizontal grid lines
+            {
+                int y = (int) ((double) gridY * gridSquareSize);
+                gfx.drawLine(0, y, arenaPixelWidth, y);
+            }
+
+
+            // Invoke helper methods to draw things at the current location.
+            // ** You will need to adapt this to the requirements of your application. **
+
+
             for(Map.Entry<String, XandYObject> b : robotsMap.entrySet()){
                 robotX = b.getValue().getNewX();
                 robotY = b.getValue().getNewY();
@@ -295,15 +295,11 @@ public class SwingArena extends JPanel implements ActionListener
 
             }
 
-            if(lastCall){
-                lastCall = true;
-            }
-            else{
+
                 if(!animationRobot.equals("")){
                     drawImage(gfx, robot1, animationRobotX, animationRobotY);
                     drawLabel(gfx, animationRobot, animationRobotX, animationRobotY);
                 }
-            }
 
             int damage;
             for(int i = 0; i < 9; i++){
@@ -315,6 +311,7 @@ public class SwingArena extends JPanel implements ActionListener
                         if(newWeakenedWallX == i && newWeakenedWallY == j){ // checks whether this is the newly damaged wall
                             if(lastCall){
                                 drawImage(gfx, wall_weakened, i, j);
+                                lastCall = false;
                             }
                         }
                         else{
