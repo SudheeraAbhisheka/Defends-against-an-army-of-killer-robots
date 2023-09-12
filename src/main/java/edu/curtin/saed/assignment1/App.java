@@ -1,13 +1,8 @@
 package edu.curtin.saed.assignment1;
 
-import org.jetbrains.annotations.NotNull;
-
 import java.awt.*;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.*;
-import java.util.logging.Logger;
 import javax.swing.*;
 
 public class App
@@ -27,13 +22,18 @@ public class App
     private final static int NO_WALL = 0;
     private static int wallCount;
     private final static int ROBOTS_LIMIT = 50; // temporary
-    private static final int[][] wallArray = new int[9][9];
+    private static int[][] wallArray;
+    private static int[][] robotArray;
     private static final JToolBar toolbar = new JToolBar();
     private static final ConcurrentHashMap<String, XandYObject> robotsMap = new ConcurrentHashMap<>();
     private static int marks = 0;
-    private static JLabel jLabel;
+    private static JLabel jLabelScore;
+    private static JLabel jLabelQueuedUpWalls;
     private static final Object mutex = new Object();
-    private static final int WALL_LIMIT = 10;
+    private static final int WALLS_LIMIT = 10;
+    private static boolean start;
+    private static int gridWidth;
+    private static int gridHeight;
     public static void main(String[] args) {
         BlockingQueue<XandYObject> blockingQueue = new ArrayBlockingQueue<>(20);
         final int OCCUPIED_CITADEL = 1;
@@ -44,42 +44,50 @@ public class App
         SwingUtilities.invokeLater(() ->
         {
             JFrame window = new JFrame("Example App (Swing)");
+
             arena = new SwingArena();
 
-            CompletableFuture.runAsync(App::RobotsAppearing, executorService);
-            CompletableFuture.runAsync(App::displayingThread, executorService);
+            gridWidth = arena.getGridWidth();
+            gridHeight = arena.getGridHeight();
+
+            wallArray = new int[gridWidth][gridHeight];
+
+
+            JButton btn1 = new JButton("Start");
+            toolbar.add(btn1);
+
+            jLabelScore = new JLabel("Score: "+marks);
+            jLabelQueuedUpWalls = new JLabel("   Queued-up walls: "+blockingQueue.size());
+
+
+            toolbar.add(jLabelScore);
+            toolbar.add(jLabelQueuedUpWalls);
+
+
+
+             btn1.addActionListener((event) ->
+             {
+                 arena.Start();
+                 start = true;
+
+                 CompletableFuture.runAsync(App::RobotsStartupCoordinates, executorService);
+                 CompletableFuture.runAsync(App::displayingThread, executorService);
+
+                 CompletableFuture.runAsync(() -> FortressWall(blockingQueue), executorService);
+                 CompletableFuture.runAsync(App::EachSecondTenMarks, executorService);
+             });
 
             arena.addListener((x, y) ->
             {
-                String s;
+                if(!IsOccupied(x, y, OCCUPIED_CITADEL) && start){
+                    if(wallCount <= WALLS_LIMIT) {
+                        blockingQueue.add(new XandYObject(x, y, NO_DELAY));
 
-                if(!IsOccupied(x, y, OCCUPIED_CITADEL)){
-                    s = String.format("%s, %s", x, y);
-                    logger.append(s+"\n");
+                        jLabelQueuedUpWalls.setText("   Queued-up walls: "+ blockingQueue.size());
 
-                    blockingQueue.add(new XandYObject(x, y, NO_DELAY));
+                    }
                 }
             });
-
-            CompletableFuture.runAsync(() -> FortressWall(blockingQueue), executorService);
-
-
-//            JToolBar toolbar = new JToolBar();
-//             JButton btn1 = new JButton("My Button 1");
-//             JButton btn2 = new JButton("My Button 2");
-
-//             toolbar.add(btn1);
-//             toolbar.add(btn2);
-//            int marks = 0;
-            jLabel = new JLabel("Score: "+marks);
-            toolbar.add(jLabel);
-
-            CompletableFuture.runAsync(App::EachSecondTenMarks, executorService);
-
-//             btn1.addActionListener((event) ->
-//             {
-//                 System.out.println("Button 1 pressed");
-//             });
 
             logger = new JTextArea();
             JScrollPane loggerArea = new JScrollPane(logger);
@@ -101,7 +109,7 @@ public class App
             splitPane.setDividerLocation(0.75);
         });
     }
-    private static void RobotsAppearing(){
+    private static void RobotsStartupCoordinates(){
         int corner;
         int x = 0, y = 0;
         final int DELAYMIN = 1;
@@ -118,33 +126,31 @@ public class App
                 }
                 case 2 -> {
                     x = 0;
-                    y = 8;
+                    y = gridHeight - 1;
                 }
                 case 3 -> {
-                    x = 8;
+                    x = gridWidth - 1;
                     y = 0;
                 }
                 case 4 -> {
-                    x = 8;
-                    y = 8;
+                    x = gridWidth - 1;
+                    y = gridHeight - 1;
                 }
             }
-            setRobotXandY(x, y);
+            GenerateRobots(x, y);
 
         }
     }
-    private static void setRobotXandY(int x, int y){
-        boolean occupied;
+    private static void GenerateRobots(int x, int y){
         int delay;
         final int DELAYMIN = 500;
         final int DELAYMAX = 2000;
-        final int OCCUPIED_ROBOTS_WALLS = 3;
 
         delay = (int)(Math.random()*(DELAYMAX-DELAYMIN+1)+DELAYMIN);
 
-        if(robotNumber == 1){
+        if(robotsMap.isEmpty()){
             robotsMap.put(""+robotNumber, new XandYObject(x, y, delay));
-            CompletableFuture.runAsync(() -> RandomMovingAttempt(""+robotNumber, new XandYObject(x, y, delay)), executorService);
+            CompletableFuture.runAsync(() -> TowardsTheCitadel(""+robotNumber, new XandYObject(x, y, delay)), executorService);
 
             try {
                 Thread.sleep(1500);
@@ -155,16 +161,19 @@ public class App
             robotNumber++;
         }
         else{
-            occupied = IsOccupied(x, y, OCCUPIED_ROBOTS_WALLS);
+            if(IsOccupied(x, y, OCCUPIED_ROBOTS)){
 
-            if(occupied){
-                // do nothing
             }
-            else{
-                if(robotNumber < ROBOTS_LIMIT){
-                    robotsMap.put(""+robotNumber, new XandYObject(x, y, delay));
-                    CompletableFuture.runAsync(() -> RandomMovingAttempt(""+robotNumber, new XandYObject(x, y, delay)), executorService);
+            else if(IsOccupied(x, y, OCCUPIED_WEAKENED_WALLS)){
+                wallArray[x][y] = NO_WALL;
+                wallCount--;
 
+                synchronized (mutex){
+                    marks = marks + 100;
+                    jLabelScore.setText("Score: "+marks);
+                }
+
+                if(robotNumber < ROBOTS_LIMIT){
                     try {
                         Thread.sleep(1500);
                     } catch (InterruptedException e) {
@@ -174,6 +183,36 @@ public class App
                     robotNumber++;
                 }
             }
+            else if(IsOccupied(x, y, OCCUPIED_UNDAMAGED_WALLS)){
+                wallArray[x][y] = WALL_WEAKENED;
+
+                synchronized (mutex){
+                    marks = marks + 100;
+                    jLabelScore.setText("Score: "+marks);
+                }
+
+                try {
+                    Thread.sleep(1500);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+
+                robotNumber++;
+            }
+            else{
+                XandYObject xandYObject = new XandYObject(x, y, delay);
+                robotsMap.put(""+robotNumber, new XandYObject(x, y, delay));
+                CompletableFuture.runAsync(() -> TowardsTheCitadel(""+robotNumber, xandYObject), executorService);
+
+                try {
+                    Thread.sleep(1500);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+
+                robotNumber++;
+            }
+
         }
 
 
@@ -181,7 +220,7 @@ public class App
     private static void TowardsTheCitadel(String robotName, XandYObject xandYObject){
         int direction;
         int delay;
-        int x, y =0;
+        int x, y;
         final int DELAYMAX = 2;
         final int DELAYMIN = 1;
         boolean freeToMove;
@@ -207,20 +246,20 @@ public class App
                         if (x < 8) {
                             x++;
                             freeToMove = FreeToMove(robotName, xandYObject, x, y);
-//                            if (!freeToMove) {
-//                                x--;
-//                                RandomMovingAttempt(robotName, xandYObject);
-//                            }
+                            if (!freeToMove) {
+                                x--;
+                                RandomMovingAttempt(robotName, xandYObject);
+                            }
                         }
                     }
                     case 2 -> { // Moves down
                         if (y < 8) {
                             y++;
                             freeToMove = FreeToMove(robotName, xandYObject, x, y);
-//                            if (!freeToMove) {
-//                                y--;
-//                                RandomMovingAttempt(robotName, xandYObject);
-//                            }
+                            if (!freeToMove) {
+                                y--;
+                                RandomMovingAttempt(robotName, xandYObject);
+                            }
                         }
                     }
                 }
@@ -230,20 +269,20 @@ public class App
                         if (x > 0) {
                             x--;
                             freeToMove = FreeToMove(robotName, xandYObject, x, y);
-//                            if (!freeToMove) {
-//                                x++;
-//                                RandomMovingAttempt(robotName, xandYObject);
-//                            }
+                            if (!freeToMove) {
+                                x++;
+                                RandomMovingAttempt(robotName, xandYObject);
+                            }
                         }
                     }
                     case 2 -> { // Moves down
                         if (y < 8) {
                             y++;
                             freeToMove = FreeToMove(robotName, xandYObject, x, y);
-//                            if (!freeToMove) {
-//                                y--;
-//                                RandomMovingAttempt(robotName, xandYObject);
-//                            }
+                            if (!freeToMove) {
+                                y--;
+                                RandomMovingAttempt(robotName, xandYObject);
+                            }
                         }
                     }
                 }
@@ -253,20 +292,20 @@ public class App
                         if (y > 0) {
                             y--;
                             freeToMove = FreeToMove(robotName, xandYObject, x, y);
-//                            if (!freeToMove) {
-//                                y++;
-//                                RandomMovingAttempt(robotName, xandYObject);
-//                            }
+                            if (!freeToMove) {
+                                y++;
+                                RandomMovingAttempt(robotName, xandYObject);
+                            }
                         }
                     }
                     case 2 -> { // Moves right
                         if (x < 8) {
                             x++;
                             freeToMove = FreeToMove(robotName, xandYObject, x, y);
-//                            if (!freeToMove) {
-//                                x--;
-//                                RandomMovingAttempt(robotName, xandYObject);
-//                            }
+                            if (!freeToMove) {
+                                x--;
+                                RandomMovingAttempt(robotName, xandYObject);
+                            }
                         }
                     }
                 }
@@ -276,20 +315,20 @@ public class App
                         if (y > 0) {
                             y--;
                             freeToMove = FreeToMove(robotName, xandYObject, x, y);
-//                            if (!freeToMove) {
-//                                y++;
-//                                RandomMovingAttempt(robotName, xandYObject);
-//                            }
+                            if (!freeToMove) {
+                                y++;
+                                RandomMovingAttempt(robotName, xandYObject);
+                            }
                         }
                     }
                     case 2 -> { // Moves left
                         if (x > 0) {
                             x--;
                             freeToMove = FreeToMove(robotName, xandYObject, x, y);
-//                            if (!freeToMove) {
-//                                x++;
-//                                RandomMovingAttempt(robotName, xandYObject);
-//                            }
+                            if (!freeToMove) {
+                                x++;
+                                RandomMovingAttempt(robotName, xandYObject);
+                            }
                         }
                     }
                 }
@@ -378,7 +417,7 @@ public class App
 
             synchronized (mutex){
                 marks = marks + 100;
-                jLabel.setText("Score: "+marks);
+                jLabelScore.setText("Score: "+marks);
             }
 
             CompletableFuture.runAsync(() -> RemoveRobot(robotName), executorService);
@@ -398,8 +437,9 @@ public class App
 
             synchronized (mutex){
                 marks = marks + 100;
-                jLabel.setText("Score: "+marks);
+                jLabelScore.setText("Score: "+marks);
             }
+
             CompletableFuture.runAsync(() -> RemoveRobot(robotName), executorService);
         }
         else{
@@ -420,33 +460,21 @@ public class App
         while(true){
             try {
                 xandYObject = blockingQueue.take();
+                jLabelQueuedUpWalls.setText("   Queued-up walls: "+ blockingQueue.size());
 
                 x = xandYObject.getNewX();
                 y = xandYObject.getNewY();
 
-                if(!IsOccupied(x, y, OCCUPIED_ALL) && wallCount < WALL_LIMIT){
+                if(!IsOccupied(x, y, OCCUPIED_ALL) && wallCount < WALLS_LIMIT){
                     wallArray[x][y] = WALL_UNDAMAGED;
                     wallCount++;
 
-//                    try {
-//                        Thread.sleep(2000);
-//                    } catch (InterruptedException e) {
-//                        throw new RuntimeException(e);
-//                    }
+                    try {
+                        Thread.sleep(2000);
+                    } catch (InterruptedException e) {
+                        throw new RuntimeException(e);
+                    }
                 }
-//                else{
-//                    Map<String, XandYObject> robotsMap;
-//                    robotsMap = arena.getRobotsMap();
-//
-//                    for(Map.Entry<String, XandYObject> e : robotsMap.entrySet()){
-//                        XandYObject o = e.getValue();
-//
-//                        if((x == o.getNewX() && y == o.getNewY() ) || (x == o.getOldX() && y == o.getOldY())){
-//                            String s = String.format("%s, %d, %d, %d, %d", e.getKey(), o.getOldX(), o.getOldY(), o.getNewX(), o.getNewY());
-//                            logger.append(s+"\n");
-//                        }
-//                    }
-//                }
 
             } catch (InterruptedException e) {
                 System.out.println(e);
@@ -460,11 +488,9 @@ public class App
         boolean occupied = false;
         Map<String, XandYObject> robotsMap;
         int wallArray[][];
-        int robotArray[][];
 
         robotsMap = arena.getRobotsMap();
         wallArray = arena.getWallArray();
-        robotArray = arena.getRobotArray();
 
         switch (occupiedBy) {
             case 1 -> { // Occupied by citadel
@@ -551,7 +577,7 @@ public class App
 
             synchronized (mutex){
                 marks = marks + 10;
-                jLabel.setText("Score: "+marks);
+                jLabelScore.setText("Score: "+marks);
             }
 
         }

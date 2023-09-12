@@ -13,47 +13,28 @@ import java.net.URL ;
  */
 public class SwingArena extends JPanel
 {
-    // Represents the image to draw. You can modify this to introduce multiple images.
-    private static final int REMOVE = -1;
     private static final String IMAGE_FILE = "1554047213.png";
     private static final String CITADEL_FILE = "rg1024-isometric-tower.png";
     private static final String UNDAMAGED_WALL = "181478.png";
     private static final String WEAKENED_WALL = "181479.png";
-    private final static int NO_WALL = 0;
     private final int WALL_UNDAMAGED = 1;
     private final int WALL_WEAKENED = 2;
     private ImageIcon robot1;
     private ImageIcon citadel;
     private ImageIcon wall_undamaged;
     private ImageIcon wall_weakened;
-    private final double CITADEL_X = 4;
-    private final double CITADEL_Y = 4;
-    private int gridWidth = 9;
-    private int gridHeight = 9;
+    private int gridWidth = 15;
+    private int gridHeight = 21;
+    private final double CITADEL_X = gridWidth/2;
+    private final double CITADEL_Y = gridHeight/2;
     private double robotX;
     private double robotY;
-    private double animationRobotX;
-    private double animationRobotY;
     private double gridSquareSize; // Auto-calculated
     private List<ArenaListener> listeners = null;
     private Map<String, XandYObject> robotsMap;
     private Map<String, XandYObject> wallMap = new HashMap<>();
     private int[][] wallArray;
-    private int[][] robotArray = new int[9][9];;
-    private volatile int startX;
-    private volatile int startY;
-    private volatile int endX;
-    private volatile int endY;
-    private int animationDuration = 400;
-    private int animationInterval = 40;
-    private long startTime; // Start time of the animation
-    private volatile String animationRobot = "";
-    private Timer timer;
-    private final Object mutex = new Object();
-    private int newWeakenedWallX;
-    private int newWeakenedWallY;
-    private boolean lastCall;
-    private int wallState;
+    private boolean start = false;
     /**
      * Creates a new arena object, loading the robot image.
      */
@@ -103,6 +84,9 @@ public class SwingArena extends JPanel
      * many different robots in practice. This method currently just serves as a demonstration.
      */
 
+    public void Start(){
+        start = true;
+    }
     public void setRobotPosition(Map<String, XandYObject> robotsMap, int[][] wallArray)
     {
         this.robotsMap = robotsMap;
@@ -193,45 +177,44 @@ public class SwingArena extends JPanel
         // Invoke helper methods to draw things at the current location.
         // ** You will need to adapt this to the requirements of your application. **
 
-        for(int i = 0; i < 9; i++){
-            for(int j = 0; j < 9; j++){
+        if(start){
+            for(int x = 0; x < gridWidth; x++){
+                for(int y = 0; y < gridHeight; y++){
 
-                if(wallArray[i][j] == WALL_UNDAMAGED)
-                    drawImage(gfx, wall_undamaged, i, j);
+                    if(wallArray[x][y] == WALL_UNDAMAGED)
+                        drawImage(gfx, wall_undamaged, x, y);
 
-                if(wallArray[i][j] == WALL_WEAKENED){
-                    drawImage(gfx, wall_weakened, i, j);
+                    if(wallArray[x][y] == WALL_WEAKENED){
+                        drawImage(gfx, wall_weakened, x, y);
+                    }
+                }
+            }
+
+            for(Map.Entry<String, XandYObject> b : robotsMap.entrySet()){
+                robotName = b.getKey();
+                if(b.getValue().isTimerStart()){
+                    robotX = b.getValue().getAnimatedCoordinates()[0];
+                    robotY = b.getValue().getAnimatedCoordinates()[1];
+
+                    if(!(robotX < 1 && robotY < 1))
+                    {
+                        drawImage(gfx, robot1, robotX, robotY);
+                        drawLabel(gfx, robotName, robotX, robotY);
+                    }
+                }
+                else{
+                    robotX = b.getValue().getNewX();
+                    robotY = b.getValue().getNewY();
+
+                    if(!b.getValue().isDestroyed()){
+                        drawImage(gfx, robot1, robotX, robotY);
+                        drawLabel(gfx, robotName, robotX, robotY);
+                    }
                 }
             }
         }
-
-        for(Map.Entry<String, XandYObject> b : robotsMap.entrySet()){
-            robotName = b.getKey();
-            if(b.getValue().isTimerStart()){
-                robotX = b.getValue().getAnimatedCoordinates()[0];
-                robotY = b.getValue().getAnimatedCoordinates()[1];
-
-                if(!(robotX < 1 && robotY < 1))
-                {
-                    drawImage(gfx, robot1, robotX, robotY);
-                    drawLabel(gfx, robotName, robotX, robotY);
-                }
-            }
-            else{
-                robotX = b.getValue().getNewX();
-                robotY = b.getValue().getNewY();
-
-                if(!b.getValue().isDestroyed()){
-                    drawImage(gfx, robot1, robotX, robotY);
-                    drawLabel(gfx, robotName, robotX, robotY);
-                }
-            }
-        }
-
         drawImage(gfx, citadel, CITADEL_X, CITADEL_Y);
         drawLabel(gfx, "Citadel", CITADEL_X, CITADEL_Y);
-
-
     }
 
 
@@ -331,7 +314,11 @@ public class SwingArena extends JPanel
     public int[][] getWallArray() {
         return wallArray;
     }
-    public int[][] getRobotArray() {
-        return robotArray;
+    public int getGridWidth() {
+        return gridWidth;
+    }
+
+    public int getGridHeight() {
+        return gridHeight;
     }
 }
