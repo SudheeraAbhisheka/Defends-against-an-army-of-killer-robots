@@ -3,7 +3,6 @@ package edu.curtin.saed.assignment1;
 import java.awt.*;
 import java.awt.event.*;
 import javax.swing.*;
-import javax.swing.Timer;
 import java.util.*;
 import java.util.List; // So that 'List' means java.util.List and not java.awt.List.
 import java.net.URL ;
@@ -17,22 +16,21 @@ public class SwingArena extends JPanel
     private static final String CITADEL_FILE = "rg1024-isometric-tower.png";
     private static final String UNDAMAGED_WALL = "181478.png";
     private static final String WEAKENED_WALL = "181479.png";
-    private final int WALL_UNDAMAGED = 1;
-    private final int WALL_WEAKENED = 2;
+    private final int wallUndamaged = 1;
+    private final int wallWeakened = 2;
     private ImageIcon robot1;
     private ImageIcon citadel;
-    private ImageIcon wall_undamaged;
-    private ImageIcon wall_weakened;
-    private int gridWidth = 15;
-    private int gridHeight = 21;
-    private final double CITADEL_X = gridWidth/2;
-    private final double CITADEL_Y = gridHeight/2;
+    private ImageIcon wallUndamagedImage;
+    private ImageIcon wallWeakenedImage;
+    private int gridWidth = 9;
+    private int gridHeight = 9;
+    private final double citadelX = gridWidth/2;
+    private final double citadelY = gridHeight/2;
     private double robotX;
     private double robotY;
     private double gridSquareSize; // Auto-calculated
     private List<ArenaListener> listeners = null;
     private Map<String, XandYObject> robotsMap;
-    private Map<String, XandYObject> wallMap = new HashMap<>();
     private int[][] wallArray;
     private boolean start = false;
     /**
@@ -69,14 +67,14 @@ public class SwingArena extends JPanel
         {
             throw new AssertionError("Cannot find image file " + UNDAMAGED_WALL);
         }
-        wall_undamaged = new ImageIcon(url);
+        wallUndamagedImage = new ImageIcon(url);
 
         url = getClass().getClassLoader().getResource(WEAKENED_WALL);
         if(url == null)
         {
             throw new AssertionError("Cannot find image file " + WEAKENED_WALL);
         }
-        wall_weakened = new ImageIcon(url);
+        wallWeakenedImage = new ImageIcon(url);
     }
 
     /**
@@ -84,7 +82,7 @@ public class SwingArena extends JPanel
      * many different robots in practice. This method currently just serves as a demonstration.
      */
 
-    public void Start(){
+    public void start(){
         start = true;
     }
     public void setRobotPosition(Map<String, XandYObject> robotsMap, int[][] wallArray)
@@ -139,7 +137,7 @@ public class SwingArena extends JPanel
     @Override
     public void paintComponent(Graphics g)
     {
-        String robotName = "";
+        String robotName;
 
         super.paintComponent(g);
         Graphics2D gfx = (Graphics2D) g;
@@ -181,11 +179,12 @@ public class SwingArena extends JPanel
             for(int x = 0; x < gridWidth; x++){
                 for(int y = 0; y < gridHeight; y++){
 
-                    if(wallArray[x][y] == WALL_UNDAMAGED)
-                        drawImage(gfx, wall_undamaged, x, y);
+                    if(wallArray[x][y] == wallUndamaged){
+                        drawImage(gfx, wallUndamagedImage, x, y);
+                    }
 
-                    if(wallArray[x][y] == WALL_WEAKENED){
-                        drawImage(gfx, wall_weakened, x, y);
+                    if(wallArray[x][y] == wallWeakened){
+                        drawImage(gfx, wallWeakenedImage, x, y);
                     }
                 }
             }
@@ -196,8 +195,7 @@ public class SwingArena extends JPanel
                     robotX = b.getValue().getAnimatedCoordinates()[0];
                     robotY = b.getValue().getAnimatedCoordinates()[1];
 
-                    if(!(robotX < 1 && robotY < 1))
-                    {
+                    if(!(robotX < 1 && robotY < 1)){
                         drawImage(gfx, robot1, robotX, robotY);
                         drawLabel(gfx, robotName, robotX, robotY);
                     }
@@ -213,8 +211,8 @@ public class SwingArena extends JPanel
                 }
             }
         }
-        drawImage(gfx, citadel, CITADEL_X, CITADEL_Y);
-        drawLabel(gfx, "Citadel", CITADEL_X, CITADEL_Y);
+        drawImage(gfx, citadel, citadelX, citadelY);
+        drawLabel(gfx, "Citadel", citadelX, citadelY);
     }
 
 
@@ -306,10 +304,10 @@ public class SwingArena extends JPanel
         return robotsMap;
     }
     public double getCITADEL_X() {
-        return CITADEL_X;
+        return citadelX;
     }
     public double getCITADEL_Y() {
-        return CITADEL_Y;
+        return citadelY;
     }
     public int[][] getWallArray() {
         return wallArray;

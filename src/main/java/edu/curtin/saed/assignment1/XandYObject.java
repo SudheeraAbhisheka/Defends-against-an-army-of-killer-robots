@@ -1,16 +1,13 @@
 package edu.curtin.saed.assignment1;
 
-import java.util.Timer;
-
 public class XandYObject {
     private int newX, newY, oldX, oldY;
     private final int delay;
     private boolean destroyed = false;
-    private Timer timer = new java.util.Timer();
     private long startTime;
     private boolean timerStart = false;
-    private final int ANIMATION_DURATION = 400;
-    private final int REMOVE_FROM_THE_GRID = -1;
+    private final int animationDURATION = 400;
+    private final int removeFromTheGrid = -1;
 
     public XandYObject(int newX, int newY, int delay) {
         this.newX = newX;
@@ -35,13 +32,13 @@ public class XandYObject {
 
         double[] animatedCoordinates = new double[2];
 
-        if (elapsedTime >= ANIMATION_DURATION) {
+        if (elapsedTime >= animationDURATION) {
             timerStart = false;
-            setOldX(REMOVE_FROM_THE_GRID);
-            setOldY(REMOVE_FROM_THE_GRID);
+            setOldX(removeFromTheGrid);
+            setOldY(removeFromTheGrid);
         } else {
 
-            double progress = (double) elapsedTime / ANIMATION_DURATION;
+            double progress = (double) elapsedTime / animationDURATION;
             animatedX = (startX + progress * (endX - startX));
             animatedY = (startY + progress * (endY - startY));
 

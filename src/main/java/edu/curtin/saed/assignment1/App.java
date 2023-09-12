@@ -1,7 +1,6 @@
 package edu.curtin.saed.assignment1;
 
 import java.awt.*;
-import java.util.Map;
 import java.util.concurrent.*;
 import javax.swing.*;
 
@@ -11,8 +10,7 @@ public class App
     private static ExecutorService executorService;
     private static SwingArena arena;
     private static int robotNumber = 1;
-    private static final int OCCUPIED_ROBOTS_WALLS = 3;
-    private static final int OCCUPIED_WALLS = 2;
+    private final static int OCCUPIED_CITADEL = 1;
     private final static int OCCUPIED_ALL = 4;
     private final static int OCCUPIED_WEAKENED_WALLS = 6;
     private final static int OCCUPIED_UNDAMAGED_WALLS = 7;
@@ -21,23 +19,22 @@ public class App
     private final static int WALL_WEAKENED = 2;
     private final static int NO_WALL = 0;
     private static int wallCount;
-    private final static int ROBOTS_LIMIT = 50; // temporary
     private static int[][] wallArray;
-    private static int[][] robotArray;
-    private static final JToolBar toolbar = new JToolBar();
-    private static final ConcurrentHashMap<String, XandYObject> robotsMap = new ConcurrentHashMap<>();
+    private static JToolBar toolbar = new JToolBar();
+    private static ConcurrentHashMap<String, XandYObject> robotsMap = new ConcurrentHashMap<>();
     private static int marks = 0;
     private static JLabel jLabelScore;
     private static JLabel jLabelQueuedUpWalls;
-    private static final Object mutex = new Object();
+    private static Object mutex = new Object();
     private static final int WALLS_LIMIT = 10;
     private static boolean start;
     private static int gridWidth;
     private static int gridHeight;
+    private static int citadelX;
+    private static int citadelY;
     public static void main(String[] args) {
         BlockingQueue<XandYObject> blockingQueue = new ArrayBlockingQueue<>(20);
-        final int OCCUPIED_CITADEL = 1;
-        final int NO_DELAY = 0;
+        final int noDelay = 0;
 
         executorService = Executors.newCachedThreadPool();
 
@@ -50,13 +47,15 @@ public class App
             gridWidth = arena.getGridWidth();
             gridHeight = arena.getGridHeight();
 
-            wallArray = new int[gridWidth][gridHeight];
+            citadelX = (int)arena.getCITADEL_X();
+            citadelY = (int)arena.getCITADEL_Y();
 
+            wallArray = new int[gridWidth][gridHeight];
 
             JButton btn1 = new JButton("Start");
             toolbar.add(btn1);
 
-            jLabelScore = new JLabel("Score: "+marks);
+            jLabelScore = new JLabel("   Score: "+marks);
             jLabelQueuedUpWalls = new JLabel("   Queued-up walls: "+blockingQueue.size());
 
 
@@ -67,21 +66,23 @@ public class App
 
              btn1.addActionListener((event) ->
              {
-                 arena.Start();
-                 start = true;
+                 arena.start();
+                 if(!start){
+                     CompletableFuture.runAsync(App::robotsStartupCoordinates, executorService);
+                     CompletableFuture.runAsync(() -> fortressWall(blockingQueue), executorService);
+                     CompletableFuture.runAsync(App::eachSecondTenMarks, executorService);
+                     CompletableFuture.runAsync(App::displayingThread, executorService);
 
-                 CompletableFuture.runAsync(App::RobotsStartupCoordinates, executorService);
-                 CompletableFuture.runAsync(App::displayingThread, executorService);
+                     start = true;
+                 }
 
-                 CompletableFuture.runAsync(() -> FortressWall(blockingQueue), executorService);
-                 CompletableFuture.runAsync(App::EachSecondTenMarks, executorService);
              });
 
             arena.addListener((x, y) ->
             {
-                if(!IsOccupied(x, y, OCCUPIED_CITADEL) && start){
+                if(!isOccupied(x, y, OCCUPIED_CITADEL) && start){
                     if(wallCount <= WALLS_LIMIT) {
-                        blockingQueue.add(new XandYObject(x, y, NO_DELAY));
+                        blockingQueue.add(new XandYObject(x, y, noDelay));
 
                         jLabelQueuedUpWalls.setText("   Queued-up walls: "+ blockingQueue.size());
 
@@ -109,15 +110,15 @@ public class App
             splitPane.setDividerLocation(0.75);
         });
     }
-    private static void RobotsStartupCoordinates(){
+    private static void robotsStartupCoordinates(){
         int corner;
         int x = 0, y = 0;
-        final int DELAYMIN = 1;
-        final int DELAYMAX = 4;
+        final int delayMIN = 1;
+        final int delayMAX = 4;
 
 
         while(true){
-            corner = (int)(Math.random()*(DELAYMAX-DELAYMIN+1)+DELAYMIN);
+            corner = (int)(Math.random()*(delayMAX-delayMIN+1)+delayMIN);
 
             switch (corner) {
                 case 1 -> {
@@ -136,21 +137,28 @@ public class App
                     x = gridWidth - 1;
                     y = gridHeight - 1;
                 }
+                default -> {
+                    x = 0;
+                    y = 0;
+                }
             }
-            GenerateRobots(x, y);
+            generateRobots(x, y);
 
         }
     }
-    private static void GenerateRobots(int x, int y){
+    private static void generateRobots(int x, int y){
         int delay;
-        final int DELAYMIN = 500;
-        final int DELAYMAX = 2000;
+        final int delayMIN = 500;
+        final int delayMAX = 2000;
 
-        delay = (int)(Math.random()*(DELAYMAX-DELAYMIN+1)+DELAYMIN);
+        delay = (int)(Math.random()*(delayMAX-delayMIN+1)+delayMIN);
 
         if(robotsMap.isEmpty()){
             robotsMap.put(""+robotNumber, new XandYObject(x, y, delay));
-            CompletableFuture.runAsync(() -> TowardsTheCitadel(""+robotNumber, new XandYObject(x, y, delay)), executorService);
+            CompletableFuture.runAsync(() -> towardsTheCitadel(""+robotNumber, new XandYObject(x, y, delay)), executorService);
+            String s = String.format("Robot %s is created", robotNumber);
+            logger.append(s+"\n");
+
 
             try {
                 Thread.sleep(1500);
@@ -161,34 +169,33 @@ public class App
             robotNumber++;
         }
         else{
-            if(IsOccupied(x, y, OCCUPIED_ROBOTS)){
-
+            if(isOccupied(x, y, OCCUPIED_ROBOTS)){
+                // do nothing
             }
-            else if(IsOccupied(x, y, OCCUPIED_WEAKENED_WALLS)){
+            else if(isOccupied(x, y, OCCUPIED_WEAKENED_WALLS)){
                 wallArray[x][y] = NO_WALL;
                 wallCount--;
 
                 synchronized (mutex){
                     marks = marks + 100;
-                    jLabelScore.setText("Score: "+marks);
+                    jLabelScore.setText("   Score: "+marks);
                 }
 
-                if(robotNumber < ROBOTS_LIMIT){
-                    try {
-                        Thread.sleep(1500);
-                    } catch (InterruptedException e) {
-                        throw new RuntimeException(e);
-                    }
+                try {
+                    Thread.sleep(1500);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
 
-                    robotNumber++;
                 }
+
+                robotNumber++;
             }
-            else if(IsOccupied(x, y, OCCUPIED_UNDAMAGED_WALLS)){
+            else if(isOccupied(x, y, OCCUPIED_UNDAMAGED_WALLS)){
                 wallArray[x][y] = WALL_WEAKENED;
 
                 synchronized (mutex){
                     marks = marks + 100;
-                    jLabelScore.setText("Score: "+marks);
+                    jLabelScore.setText("   Score: "+marks);
                 }
 
                 try {
@@ -202,12 +209,16 @@ public class App
             else{
                 XandYObject xandYObject = new XandYObject(x, y, delay);
                 robotsMap.put(""+robotNumber, new XandYObject(x, y, delay));
-                CompletableFuture.runAsync(() -> TowardsTheCitadel(""+robotNumber, xandYObject), executorService);
+                CompletableFuture.runAsync(() -> towardsTheCitadel(""+robotNumber, xandYObject), executorService);
+
+                String s = String.format("Robot %s is created", robotNumber);
+                logger.append(s+"\n");
 
                 try {
                     Thread.sleep(1500);
                 } catch (InterruptedException e) {
                     throw new RuntimeException(e);
+
                 }
 
                 robotNumber++;
@@ -217,12 +228,12 @@ public class App
 
 
     }
-    private static void TowardsTheCitadel(String robotName, XandYObject xandYObject){
+    private static void towardsTheCitadel(String robotName, XandYObject xandYObject){
         int direction;
         int delay;
         int x, y;
-        final int DELAYMAX = 2;
-        final int DELAYMIN = 1;
+        final int delayMAX = 2;
+        final int delayMIN = 1;
         boolean freeToMove;
 
 
@@ -232,128 +243,138 @@ public class App
 
         while(!xandYObject.isDestroyed()){
 
-            direction = (int) (Math.random() * (DELAYMAX - DELAYMIN + 1) + DELAYMIN);
+            direction = (int) (Math.random() * (delayMAX - delayMIN + 1) + delayMIN);
 
             try {
                 Thread.sleep(delay);
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
+
             }
 
-            if(x < 4 && y < 4){ // Upper left corner
+            if(x < citadelX && y < citadelY){ // Upper left corner
                 switch (direction) {
                     case 1 -> { // Moves right
-                        if (x < 8) {
+                        if (x < gridWidth - 1) {
                             x++;
-                            freeToMove = FreeToMove(robotName, xandYObject, x, y);
+                            freeToMove = freeToMove(robotName, xandYObject, x, y);
                             if (!freeToMove) {
                                 x--;
-                                RandomMovingAttempt(robotName, xandYObject);
+                                randomMovingAttempt(robotName, xandYObject);
                             }
                         }
                     }
                     case 2 -> { // Moves down
-                        if (y < 8) {
+                        if (y < gridHeight + 1) {
                             y++;
-                            freeToMove = FreeToMove(robotName, xandYObject, x, y);
+                            freeToMove = freeToMove(robotName, xandYObject, x, y);
                             if (!freeToMove) {
                                 y--;
-                                RandomMovingAttempt(robotName, xandYObject);
+                                randomMovingAttempt(robotName, xandYObject);
                             }
                         }
                     }
+                    default -> {// do nothing
+                    }
                 }
-            }else if(x >= 4 && y < 4){ // Upper right corner
+            }else if(x >= citadelX && y < citadelY){ // Upper right corner
                 switch (direction) {
                     case 1 -> { // Moves left
                         if (x > 0) {
                             x--;
-                            freeToMove = FreeToMove(robotName, xandYObject, x, y);
+                            freeToMove = freeToMove(robotName, xandYObject, x, y);
                             if (!freeToMove) {
                                 x++;
-                                RandomMovingAttempt(robotName, xandYObject);
+                                randomMovingAttempt(robotName, xandYObject);
                             }
                         }
                     }
                     case 2 -> { // Moves down
-                        if (y < 8) {
+                        if (y < gridHeight - 1) {
                             y++;
-                            freeToMove = FreeToMove(robotName, xandYObject, x, y);
+                            freeToMove = freeToMove(robotName, xandYObject, x, y);
                             if (!freeToMove) {
                                 y--;
-                                RandomMovingAttempt(robotName, xandYObject);
+                                randomMovingAttempt(robotName, xandYObject);
                             }
                         }
                     }
+                    default -> {// do nothing
+                    }
                 }
-            }else if(x < 4 && y >= 4) { // Bottom left corner
+            }else if(x < citadelX && y >= citadelY) { // Bottom left corner
                 switch (direction) {
                     case 1 -> { // Moves up
                         if (y > 0) {
                             y--;
-                            freeToMove = FreeToMove(robotName, xandYObject, x, y);
+                            freeToMove = freeToMove(robotName, xandYObject, x, y);
                             if (!freeToMove) {
                                 y++;
-                                RandomMovingAttempt(robotName, xandYObject);
+                                randomMovingAttempt(robotName, xandYObject);
                             }
                         }
                     }
                     case 2 -> { // Moves right
-                        if (x < 8) {
+                        if (x < gridWidth) {
                             x++;
-                            freeToMove = FreeToMove(robotName, xandYObject, x, y);
+                            freeToMove = freeToMove(robotName, xandYObject, x, y);
                             if (!freeToMove) {
                                 x--;
-                                RandomMovingAttempt(robotName, xandYObject);
+                                randomMovingAttempt(robotName, xandYObject);
                             }
                         }
                     }
+                    default -> {// do nothing
+                    }
                 }
-            }else if(x >= 4 && y >= 4){ // Bottom right corner
+            }else if(x >= citadelX && y >= citadelY){ // Bottom right corner
                 switch (direction) {
                     case 1 -> { // Moves up
                         if (y > 0) {
                             y--;
-                            freeToMove = FreeToMove(robotName, xandYObject, x, y);
+                            freeToMove = freeToMove(robotName, xandYObject, x, y);
                             if (!freeToMove) {
                                 y++;
-                                RandomMovingAttempt(robotName, xandYObject);
+                                randomMovingAttempt(robotName, xandYObject);
                             }
                         }
                     }
                     case 2 -> { // Moves left
                         if (x > 0) {
                             x--;
-                            freeToMove = FreeToMove(robotName, xandYObject, x, y);
+                            freeToMove = freeToMove(robotName, xandYObject, x, y);
                             if (!freeToMove) {
                                 x++;
-                                RandomMovingAttempt(robotName, xandYObject);
+                                randomMovingAttempt(robotName, xandYObject);
                             }
                         }
+                    }
+                    default -> {// do nothing
                     }
                 }
             }
         }
     }
-    private static void RandomMovingAttempt(String robotName, XandYObject xandYObject){
+    private static void randomMovingAttempt(String robotName, XandYObject xandYObject){
         int direction;
         int delay;
         int x, y;
-        Boolean freeToMove;
-        final int DELAYMAX = 4;
-        final int DELAYMIN = 1;
+        boolean freeToMove;
+        final int delayMAX = 4;
+        final int delayMIN = 1;
 
         delay = xandYObject.getDelay();
         x = xandYObject.getNewX();
         y = xandYObject.getNewY();
 
         while(!xandYObject.isDestroyed()){
-            direction = (int) (Math.random() * (DELAYMAX - DELAYMIN + 1) + DELAYMIN);
+            direction = (int) (Math.random() * (delayMAX - delayMIN + 1) + delayMIN);
 
             try {
                 Thread.sleep(delay);
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
+
             }
 
 
@@ -361,16 +382,16 @@ public class App
                 case 1 -> { // Moves left
                     if (x > 0) {
                         x--;
-                        freeToMove = FreeToMove(robotName, xandYObject, x, y);
+                        freeToMove = freeToMove(robotName, xandYObject, x, y);
                         if (!freeToMove) {
                             x++;
                         }
                     }
                 }
                 case 2 -> { // Moves right
-                    if (x < 8) {
+                    if (x < gridWidth - 1) {
                         x++;
-                        freeToMove = FreeToMove(robotName, xandYObject, x, y);
+                        freeToMove = freeToMove(robotName, xandYObject, x, y);
                         if (!freeToMove) {
                             x--;
                         }
@@ -379,32 +400,42 @@ public class App
                 case 3 -> { // Moves up
                     if (y > 0) {
                         y--;
-                        freeToMove = FreeToMove(robotName, xandYObject, x, y);
+                        freeToMove = freeToMove(robotName, xandYObject, x, y);
                         if (!freeToMove) {
                             y++;
                         }
                     }
                 }
                 case 4 -> { // Moves down
-                    if (y < 8) {
+                    if (y < gridHeight - 1) {
                         y++;
-                        freeToMove = FreeToMove(robotName, xandYObject, x, y);
+                        freeToMove = freeToMove(robotName, xandYObject, x, y);
                         if (!freeToMove) {
                             y--;
                         }
                     }
                 }
+                default -> {// do nothing
+                }
             }
 
         }
     }
-    private static boolean FreeToMove(String robotName, XandYObject xandYObject, int newX, int newY){
+    private static boolean freeToMove(String robotName, XandYObject xandYObject, int newX, int newY){
         boolean freeToMove = true;
 
-        if(IsOccupied(newX, newY, OCCUPIED_ROBOTS))
-            freeToMove = false;
+        if(isOccupied(newX, newY, OCCUPIED_CITADEL)){
+            String s = String.format("%s", "Gave over!");
+            logger.append(s+"\n");
 
-        else if(IsOccupied(newX, newY, OCCUPIED_UNDAMAGED_WALLS)){
+            executorService.shutdownNow();
+        }
+
+        if(isOccupied(newX, newY, OCCUPIED_ROBOTS)){
+            freeToMove = false;
+        }
+
+        else if(isOccupied(newX, newY, OCCUPIED_UNDAMAGED_WALLS)){
             xandYObject.setOldX(xandYObject.getNewX());
             xandYObject.setOldY(xandYObject.getNewY());
             xandYObject.setNewX(newX);
@@ -415,15 +446,18 @@ public class App
             robotsMap.put(robotName, xandYObject);
             wallArray[newX][newY] = WALL_WEAKENED;
 
+            String s = String.format("A wall got weakened.");
+            logger.append(s+"\n");
+
             synchronized (mutex){
                 marks = marks + 100;
-                jLabelScore.setText("Score: "+marks);
+                jLabelScore.setText("   Score: "+marks);
             }
 
-            CompletableFuture.runAsync(() -> RemoveRobot(robotName), executorService);
+            CompletableFuture.runAsync(() -> removeRobot(robotName), executorService);
         }
 
-        else if(IsOccupied(newX, newY, OCCUPIED_WEAKENED_WALLS)){
+        else if(isOccupied(newX, newY, OCCUPIED_WEAKENED_WALLS)){
             xandYObject.setOldX(xandYObject.getNewX());
             xandYObject.setOldY(xandYObject.getNewY());
             xandYObject.setNewX(newX);
@@ -435,12 +469,15 @@ public class App
             wallArray[newX][newY] = NO_WALL;
             wallCount--;
 
+            String s = String.format("A wall got destroyed. Remaining wall count - %s", wallCount);
+            logger.append(s+"\n");
+
             synchronized (mutex){
                 marks = marks + 100;
-                jLabelScore.setText("Score: "+marks);
+                jLabelScore.setText("   Score: "+marks);
             }
 
-            CompletableFuture.runAsync(() -> RemoveRobot(robotName), executorService);
+            CompletableFuture.runAsync(() -> removeRobot(robotName), executorService);
         }
         else{
             xandYObject.setOldX(xandYObject.getNewX());
@@ -453,7 +490,7 @@ public class App
 
         return freeToMove;
     }
-    private static void FortressWall(BlockingQueue<XandYObject> blockingQueue){
+    private static void fortressWall(BlockingQueue<XandYObject> blockingQueue){
         XandYObject xandYObject;
         int x, y;
 
@@ -465,14 +502,18 @@ public class App
                 x = xandYObject.getNewX();
                 y = xandYObject.getNewY();
 
-                if(!IsOccupied(x, y, OCCUPIED_ALL) && wallCount < WALLS_LIMIT){
+                if(!isOccupied(x, y, OCCUPIED_ALL) && wallCount < WALLS_LIMIT){
                     wallArray[x][y] = WALL_UNDAMAGED;
                     wallCount++;
+
+                    String s = String.format("Wall %s is created", wallCount);
+                    logger.append(s+"\n");
 
                     try {
                         Thread.sleep(2000);
                     } catch (InterruptedException e) {
                         throw new RuntimeException(e);
+
                     }
                 }
 
@@ -480,27 +521,23 @@ public class App
                 System.out.println(e);
                 throw new RuntimeException(e);
 
-            }
 
+            }
         }
     }
-    private static boolean IsOccupied(int x, int y, int occupiedBy){
+    private static boolean isOccupied(int x, int y, int occupiedBy){
         boolean occupied = false;
-        Map<String, XandYObject> robotsMap;
-        int wallArray[][];
-
-        robotsMap = arena.getRobotsMap();
-        wallArray = arena.getWallArray();
 
         switch (occupiedBy) {
             case 1 -> { // Occupied by citadel
-                if(x == arena.getCITADEL_X() && y == arena.getCITADEL_Y()){
+                if(x == citadelX && y == citadelY){
                     occupied = true;
                 }
             }
             case 2 -> { // Occupied by walls
-                if (wallArray[x][y] == 1 || wallArray[x][y] == 2)
+                if (wallArray[x][y] == 1 || wallArray[x][y] == 2){
                     occupied = true;
+                }
             }
             case 3 -> { // Occupied by robots and walls
                 for (XandYObject o : robotsMap.values()) {
@@ -508,8 +545,10 @@ public class App
                         occupied = true;
                     }
                 }
-                if (wallArray[x][y] == 1 || wallArray[x][y] == 2)
+
+                if (wallArray[x][y] == 1 || wallArray[x][y] == 2){
                     occupied = true;
+                }
             }
             case 4 -> { // Occupied by all
                 for (XandYObject o : robotsMap.values()) {
@@ -517,11 +556,13 @@ public class App
                         occupied = true;
                     }
                 }
-                if (wallArray[x][y] == 1 || wallArray[x][y] == 2)
+                if (wallArray[x][y] == 1 || wallArray[x][y] == 2){
                     occupied = true;
+                }
 
-                if(x == arena.getCITADEL_X() && y == arena.getCITADEL_Y())
+                if(x == citadelX && y == citadelY){
                     occupied = true;
+                }
             }
             case 5 -> { // Occupied by robots
                 for (XandYObject o : robotsMap.values()) {
@@ -531,20 +572,18 @@ public class App
                 }
             }
             case 6 -> { // Occupied by weakened walls
-                if (wallArray[x][y] == 2)
+                if (wallArray[x][y] == 2){
                     occupied = true;
+                }
             }
             case 7 -> { // Occupied by undamaged walls
-                if (wallArray[x][y] == 1)
+                if (wallArray[x][y] == 1){
                     occupied = true;
+                }
+            }
+            default -> { // do nothing
             }
         }
-
-
-
-//        if(robotArray[x][y] == 1)
-//            occupied = true;
-
 
         return occupied;
     }
@@ -556,28 +595,31 @@ public class App
 //                Thread.sleep(20);
 //            } catch (InterruptedException e) {
 //                throw new RuntimeException(e);
+
 //            }
         }
     }
-    private static void RemoveRobot(String robotName){
+    private static void removeRobot(String robotName){
         try {
             Thread.sleep(500);
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
+
         }
         robotsMap.remove(robotName);
     }
-    private static void EachSecondTenMarks(){
+    private static void eachSecondTenMarks(){
         while(true){
             try {
                 Thread.sleep(1000);
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
+
             }
 
             synchronized (mutex){
                 marks = marks + 10;
-                jLabelScore.setText("Score: "+marks);
+                jLabelScore.setText("   Score: "+marks);
             }
 
         }
