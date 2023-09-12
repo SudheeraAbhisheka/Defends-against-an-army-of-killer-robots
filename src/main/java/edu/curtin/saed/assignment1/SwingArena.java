@@ -38,7 +38,7 @@ public class SwingArena extends JPanel
     private List<ArenaListener> listeners = null;
     private Map<String, XandYObject> robotsMap;
     private Map<String, XandYObject> wallMap = new HashMap<>();
-    private final int[][] wallArray = new int[9][9];
+    private int[][] wallArray;
     private int[][] robotArray = new int[9][9];;
     private volatile int startX;
     private volatile int startY;
@@ -103,9 +103,10 @@ public class SwingArena extends JPanel
      * many different robots in practice. This method currently just serves as a demonstration.
      */
 
-    public void setRobotPosition(Map<String, XandYObject> robotsMap)
+    public void setRobotPosition(Map<String, XandYObject> robotsMap, int[][] wallArray)
     {
         this.robotsMap = robotsMap;
+        this.wallArray = wallArray;
 
         repaint();
     }
@@ -192,48 +193,40 @@ public class SwingArena extends JPanel
         // Invoke helper methods to draw things at the current location.
         // ** You will need to adapt this to the requirements of your application. **
 
+        for(int i = 0; i < 9; i++){
+            for(int j = 0; j < 9; j++){
+
+                if(wallArray[i][j] == WALL_UNDAMAGED)
+                    drawImage(gfx, wall_undamaged, i, j);
+
+                if(wallArray[i][j] == WALL_WEAKENED){
+                    drawImage(gfx, wall_weakened, i, j);
+                }
+            }
+        }
 
         for(Map.Entry<String, XandYObject> b : robotsMap.entrySet()){
             robotName = b.getKey();
             if(b.getValue().isTimerStart()){
-                    robotX = b.getValue().getAnimatedCoordinates()[0];
-                    robotY = b.getValue().getAnimatedCoordinates()[1];
+                robotX = b.getValue().getAnimatedCoordinates()[0];
+                robotY = b.getValue().getAnimatedCoordinates()[1];
+
+                if(!(robotX < 1 && robotY < 1))
+                {
+                    drawImage(gfx, robot1, robotX, robotY);
+                    drawLabel(gfx, robotName, robotX, robotY);
+                }
             }
             else{
+                robotX = b.getValue().getNewX();
+                robotY = b.getValue().getNewY();
 
-                    robotX = b.getValue().getNewX();
-                    robotY = b.getValue().getNewY();
+                if(!b.getValue().isDestroyed()){
+                    drawImage(gfx, robot1, robotX, robotY);
+                    drawLabel(gfx, robotName, robotX, robotY);
+                }
             }
-
-            if(!(robotX < 1 && robotY < 1))
-            {
-                drawImage(gfx, robot1, robotX, robotY);
-                drawLabel(gfx, robotName, robotX, robotY);
-            }
-
         }
-
-
-//        int damage;
-//        for(int i = 0; i < 9; i++){
-//            for(int j = 0; j < 9; j++){
-//                damage = wallArray[i][j];
-//                if(damage == WALL_UNDAMAGED)
-//                    drawImage(gfx, wall_undamaged, i, j);
-//                if(damage == WALL_WEAKENED){
-//                    if(newWeakenedWallX == i && newWeakenedWallY == j){ // checks whether this is the newly damaged wall
-//                        if(lastCall){
-//                            drawImage(gfx, wall_weakened, i, j);
-//                            lastCall = false;
-//                        }
-//                    }
-//                    else{
-//                        drawImage(gfx, wall_weakened, i, j);
-//                    }
-//                }
-//
-//            }
-//        }
 
         drawImage(gfx, citadel, CITADEL_X, CITADEL_Y);
         drawLabel(gfx, "Citadel", CITADEL_X, CITADEL_Y);

@@ -26,8 +26,14 @@ public class App
     private final static int WALL_WEAKENED = 2;
     private final static int NO_WALL = 0;
     private static int wallCount;
-    private final static int ROBOTS_LIMIT = 16; // temporary
-    private static ConcurrentHashMap<String, XandYObject> robotsMap = new ConcurrentHashMap<>();
+    private final static int ROBOTS_LIMIT = 50; // temporary
+    private static final int[][] wallArray = new int[9][9];
+    private static final JToolBar toolbar = new JToolBar();
+    private static final ConcurrentHashMap<String, XandYObject> robotsMap = new ConcurrentHashMap<>();
+    private static int marks = 0;
+    private static JLabel jLabel;
+    private static final Object mutex = new Object();
+    private static final int WALL_LIMIT = 10;
     public static void main(String[] args) {
         BlockingQueue<XandYObject> blockingQueue = new ArrayBlockingQueue<>(20);
         final int OCCUPIED_CITADEL = 1;
@@ -35,7 +41,6 @@ public class App
 
         executorService = Executors.newCachedThreadPool();
 
-        // Note: SwingUtilities.invokeLater() is equivalent to JavaFX's Platform.runLater().
         SwingUtilities.invokeLater(() ->
         {
             JFrame window = new JFrame("Example App (Swing)");
@@ -56,16 +61,20 @@ public class App
                 }
             });
 
-            CompletableFuture.runAsync(() -> FortressWall(blockingQueue));
+            CompletableFuture.runAsync(() -> FortressWall(blockingQueue), executorService);
 
 
-            JToolBar toolbar = new JToolBar();
+//            JToolBar toolbar = new JToolBar();
 //             JButton btn1 = new JButton("My Button 1");
 //             JButton btn2 = new JButton("My Button 2");
-            JLabel label = new JLabel("Score: 999");
+
 //             toolbar.add(btn1);
 //             toolbar.add(btn2);
-            toolbar.add(label);
+//            int marks = 0;
+            jLabel = new JLabel("Score: "+marks);
+            toolbar.add(jLabel);
+
+            CompletableFuture.runAsync(App::EachSecondTenMarks, executorService);
 
 //             btn1.addActionListener((event) ->
 //             {
@@ -121,6 +130,7 @@ public class App
                 }
             }
             setRobotXandY(x, y);
+
         }
     }
     private static void setRobotXandY(int x, int y){
@@ -130,12 +140,9 @@ public class App
         final int DELAYMAX = 2000;
         final int OCCUPIED_ROBOTS_WALLS = 3;
 
-
         delay = (int)(Math.random()*(DELAYMAX-DELAYMIN+1)+DELAYMIN);
 
         if(robotNumber == 1){
-
-//            arena.setRobotPosition(""+robotNumber, new XandYObject(x, y, delay), 0);
             robotsMap.put(""+robotNumber, new XandYObject(x, y, delay));
             CompletableFuture.runAsync(() -> RandomMovingAttempt(""+robotNumber, new XandYObject(x, y, delay)), executorService);
 
@@ -155,7 +162,6 @@ public class App
             }
             else{
                 if(robotNumber < ROBOTS_LIMIT){
-//                    arena.setRobotPosition(""+robotNumber, new XandYObject(x, y, delay), 0);
                     robotsMap.put(""+robotNumber, new XandYObject(x, y, delay));
                     CompletableFuture.runAsync(() -> RandomMovingAttempt(""+robotNumber, new XandYObject(x, y, delay)), executorService);
 
@@ -186,11 +192,6 @@ public class App
         y = xandYObject.getNewY();
 
         while(!xandYObject.isDestroyed()){
-
-            // xandYObject.isDestroyed()
-
-//            String s = String.format("%s, %s, %b", robotName, "Destroyed", destroyedRobots.containsKey(robotName));
-//            System.out.println(s);
 
             direction = (int) (Math.random() * (DELAYMAX - DELAYMIN + 1) + DELAYMIN);
 
@@ -307,7 +308,7 @@ public class App
         x = xandYObject.getNewX();
         y = xandYObject.getNewY();
 
-        while(true){
+        while(!xandYObject.isDestroyed()){
             direction = (int) (Math.random() * (DELAYMAX - DELAYMIN + 1) + DELAYMIN);
 
             try {
@@ -364,43 +365,55 @@ public class App
         if(IsOccupied(newX, newY, OCCUPIED_ROBOTS))
             freeToMove = false;
 
-        if(IsOccupied(newX, newY, OCCUPIED_UNDAMAGED_WALLS)){
+        else if(IsOccupied(newX, newY, OCCUPIED_UNDAMAGED_WALLS)){
             xandYObject.setOldX(xandYObject.getNewX());
             xandYObject.setOldY(xandYObject.getNewY());
             xandYObject.setNewX(newX);
             xandYObject.setNewY(newY);
-            xandYObject.setDestroyed(true);
+            xandYObject.setDestroyed();
+
+            xandYObject.startTimer();
             robotsMap.put(robotName, xandYObject);
-//            arena.setRobotPosition(robotName, xandYObject);
-//            arena.setWallPosition(newX, newY, WALL_WEAKENED);
+            wallArray[newX][newY] = WALL_WEAKENED;
+
+            synchronized (mutex){
+                marks = marks + 100;
+                jLabel.setText("Score: "+marks);
+            }
+
+            CompletableFuture.runAsync(() -> RemoveRobot(robotName), executorService);
         }
 
-        if(IsOccupied(newX, newY, OCCUPIED_WEAKENED_WALLS)){
+        else if(IsOccupied(newX, newY, OCCUPIED_WEAKENED_WALLS)){
             xandYObject.setOldX(xandYObject.getNewX());
             xandYObject.setOldY(xandYObject.getNewY());
             xandYObject.setNewX(newX);
             xandYObject.setNewY(newY);
-            xandYObject.setDestroyed(true);
+            xandYObject.setDestroyed();
+
+            xandYObject.startTimer();
             robotsMap.put(robotName, xandYObject);
-//            arena.setRobotPosition(robotName, xandYObject);
-//            arena.setWallPosition(newX, newY, NO_WALL);
+            wallArray[newX][newY] = NO_WALL;
             wallCount--;
-        }
 
-        if(freeToMove){
+            synchronized (mutex){
+                marks = marks + 100;
+                jLabel.setText("Score: "+marks);
+            }
+            CompletableFuture.runAsync(() -> RemoveRobot(robotName), executorService);
+        }
+        else{
             xandYObject.setOldX(xandYObject.getNewX());
             xandYObject.setOldY(xandYObject.getNewY());
             xandYObject.setNewX(newX);
             xandYObject.setNewY(newY);
             xandYObject.startTimer();
             robotsMap.put(robotName, xandYObject);
-//            arena.setRobotPosition(robotName, xandYObject);
         }
 
         return freeToMove;
     }
     private static void FortressWall(BlockingQueue<XandYObject> blockingQueue){
-        boolean occupied;
         XandYObject xandYObject;
         int x, y;
 
@@ -411,10 +424,8 @@ public class App
                 x = xandYObject.getNewX();
                 y = xandYObject.getNewY();
 
-                occupied = IsOccupied(x, y, OCCUPIED_ALL);
-
-                if(!occupied && wallCount < 10){
-//                    arena.setWallPosition(x, y, WALL_UNDAMAGED);
+                if(!IsOccupied(x, y, OCCUPIED_ALL) && wallCount < WALL_LIMIT){
+                    wallArray[x][y] = WALL_UNDAMAGED;
                     wallCount++;
 
 //                    try {
@@ -422,9 +433,6 @@ public class App
 //                    } catch (InterruptedException e) {
 //                        throw new RuntimeException(e);
 //                    }
-
-//            String s = String.format("%s, %s", x, y);
-//            logger.append(s+"\n");
                 }
 //                else{
 //                    Map<String, XandYObject> robotsMap;
@@ -474,7 +482,7 @@ public class App
                         occupied = true;
                     }
                 }
-                if (wallArray[x][y] == 1)
+                if (wallArray[x][y] == 1 || wallArray[x][y] == 2)
                     occupied = true;
             }
             case 4 -> { // Occupied by all
@@ -483,13 +491,13 @@ public class App
                         occupied = true;
                     }
                 }
-                if (wallArray[x][y] == 1)
+                if (wallArray[x][y] == 1 || wallArray[x][y] == 2)
                     occupied = true;
 
                 if(x == arena.getCITADEL_X() && y == arena.getCITADEL_Y())
                     occupied = true;
             }
-            case 5 -> {
+            case 5 -> { // Occupied by robots
                 for (XandYObject o : robotsMap.values()) {
                     if ((x == o.getNewX() && y == o.getNewY()) || (x == o.getOldX() && y == o.getOldY())) {
                         occupied = true;
@@ -516,7 +524,39 @@ public class App
     }
     private static void displayingThread(){
         while(true){
-            arena.setRobotPosition(robotsMap);
+            arena.setRobotPosition(robotsMap, wallArray);
+
+//            try {
+//                Thread.sleep(20);
+//            } catch (InterruptedException e) {
+//                throw new RuntimeException(e);
+//            }
         }
+    }
+    private static void RemoveRobot(String robotName){
+        try {
+            Thread.sleep(500);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+        robotsMap.remove(robotName);
+    }
+    private static void EachSecondTenMarks(){
+        while(true){
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+
+            synchronized (mutex){
+                marks = marks + 10;
+                jLabel.setText("Score: "+marks);
+            }
+
+        }
+
+
+
     }
 }

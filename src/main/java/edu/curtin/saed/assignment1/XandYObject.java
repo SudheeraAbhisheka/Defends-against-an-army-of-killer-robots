@@ -10,6 +10,7 @@ public class XandYObject {
     private long startTime;
     private boolean timerStart = false;
     private final int ANIMATION_DURATION = 400;
+    private final int REMOVE_FROM_THE_GRID = -1;
 
     public XandYObject(int newX, int newY, int delay) {
         this.newX = newX;
@@ -36,6 +37,8 @@ public class XandYObject {
 
         if (elapsedTime >= ANIMATION_DURATION) {
             timerStart = false;
+            setOldX(REMOVE_FROM_THE_GRID);
+            setOldY(REMOVE_FROM_THE_GRID);
         } else {
 
             double progress = (double) elapsedTime / ANIMATION_DURATION;
@@ -64,18 +67,12 @@ public class XandYObject {
     public int getNewY() {
         return newY;
     }
-
     public int getDelay() {
         return delay;
     }
-    public Timer getTimer() {
-        return timer;
-    }
-
     public void setNewX(int newX) {
         this.newX = newX;
     }
-
     public void setNewY(int newY) {
         this.newY = newY;
     }
@@ -85,16 +82,12 @@ public class XandYObject {
     public void setOldY(int oldY) {
         this.oldY = oldY;
     }
-    public void setTimer(Timer timer) {
-        this.timer = timer;
-    }
-
     public boolean isDestroyed() {
         return destroyed;
     }
 
-    public void setDestroyed(boolean destroyed) {
-        this.destroyed = destroyed;
+    public void setDestroyed() {
+        this.destroyed = true;
     }
 
     @Override
